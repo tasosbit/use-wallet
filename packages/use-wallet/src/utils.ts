@@ -9,6 +9,7 @@ import { KibisisWallet } from './wallets/kibisis'
 import { KmdWallet } from './wallets/kmd'
 import { LuteWallet } from './wallets/lute'
 import { MagicAuth } from './wallets/magic'
+import { MetaMaskWallet } from './wallets/metamask'
 import { MnemonicWallet } from './wallets/mnemonic'
 import { PeraWallet } from './wallets/pera'
 import { WalletConnect } from './wallets/walletconnect'
@@ -26,6 +27,7 @@ export function createWalletMap(): WalletMap {
     [WalletId.KMD]: KmdWallet,
     [WalletId.LUTE]: LuteWallet,
     [WalletId.MAGIC]: MagicAuth,
+    [WalletId.METAMASK]: MetaMaskWallet,
     [WalletId.MNEMONIC]: MnemonicWallet,
     [WalletId.PERA]: PeraWallet,
     [WalletId.WALLETCONNECT]: WalletConnect,

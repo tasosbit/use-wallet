@@ -6,6 +6,7 @@ import { KibisisWallet } from './kibisis'
 import { KmdWallet, type KmdOptions } from './kmd'
 import { LuteConnectOptions, LuteWallet } from './lute'
 import { MagicAuth, MagicAuthOptions } from './magic'
+import { MetaMaskWallet, type MetaMaskWalletOptions } from './metamask'
 import { MnemonicWallet, type MnemonicOptions } from './mnemonic'
 import { PeraWallet, type PeraWalletConnectOptions } from './pera'
 import { WalletConnect, type WalletConnectOptions } from './walletconnect'
@@ -26,6 +27,7 @@ export enum WalletId {
   KMD = 'kmd',
   LUTE = 'lute',
   MAGIC = 'magic',
+  METAMASK = 'metamask',
   MNEMONIC = 'mnemonic',
   PERA = 'pera',
   WALLETCONNECT = 'walletconnect',
@@ -72,6 +74,7 @@ export type WalletMap = {
   [WalletId.KMD]: typeof KmdWallet
   [WalletId.LUTE]: typeof LuteWallet
   [WalletId.MAGIC]: typeof MagicAuth
+  [WalletId.METAMASK]: typeof MetaMaskWallet
   [WalletId.MNEMONIC]: typeof MnemonicWallet
   [WalletId.PERA]: typeof PeraWallet
   [WalletId.WALLETCONNECT]: typeof WalletConnect
@@ -89,6 +92,7 @@ export type WalletOptionsMap = {
   [WalletId.KMD]: KmdOptions
   [WalletId.LUTE]: LuteConnectOptions
   [WalletId.MAGIC]: MagicAuthOptions
+  [WalletId.METAMASK]: MetaMaskWalletOptions
   [WalletId.MNEMONIC]: MnemonicOptions
   [WalletId.PERA]: PeraWalletConnectOptions
   [WalletId.WALLETCONNECT]: WalletConnectOptions

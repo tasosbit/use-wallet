@@ -39,7 +39,7 @@
   ],
   "dependencies": {
     "@tanstack/react-store": "0.8.0",
-    "@txnlab/use-wallet": "workspace:*"
+    "@txnlab/use-wallet": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "18.3.27",
