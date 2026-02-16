@@ -9,6 +9,7 @@ import { MagicAuth, MagicAuthOptions } from './magic'
 import { MetaMaskWallet, type MetaMaskWalletOptions } from './metamask'
 import { MnemonicWallet, type MnemonicOptions } from './mnemonic'
 import { PeraWallet, type PeraWalletConnectOptions } from './pera'
+import { RainbowWallet, type RainbowWalletOptions } from './rainbow'
 import { WalletConnect, type WalletConnectOptions } from './walletconnect'
 import { Web3AuthWallet, type Web3AuthOptions } from './web3auth'
 import { BiatecWallet } from './biatec'
@@ -30,6 +31,7 @@ export enum WalletId {
   METAMASK = 'metamask',
   MNEMONIC = 'mnemonic',
   PERA = 'pera',
+  RAINBOW = 'rainbow',
   WALLETCONNECT = 'walletconnect',
   WEB3AUTH = 'web3auth',
   W3_WALLET = 'w3-wallet'
@@ -77,6 +79,7 @@ export type WalletMap = {
   [WalletId.METAMASK]: typeof MetaMaskWallet
   [WalletId.MNEMONIC]: typeof MnemonicWallet
   [WalletId.PERA]: typeof PeraWallet
+  [WalletId.RAINBOW]: typeof RainbowWallet
   [WalletId.WALLETCONNECT]: typeof WalletConnect
   [WalletId.WEB3AUTH]: typeof Web3AuthWallet
   [WalletId.W3_WALLET]: typeof W3Wallet
@@ -95,6 +98,7 @@ export type WalletOptionsMap = {
   [WalletId.METAMASK]: MetaMaskWalletOptions
   [WalletId.MNEMONIC]: MnemonicOptions
   [WalletId.PERA]: PeraWalletConnectOptions
+  [WalletId.RAINBOW]: RainbowWalletOptions
   [WalletId.WALLETCONNECT]: WalletConnectOptions
   [WalletId.WEB3AUTH]: Web3AuthOptions
   [WalletId.W3_WALLET]: Record<string, never>
@@ -126,6 +130,11 @@ export type SupportedWallets = NonEmptyArray<SupportedWallet>
 export type WalletMetadata = {
   name: string
   icon: string
+  isLiquid?: 'EVM'
+}
+
+export type LiquidEvmMetadata = WalletMetadata & {
+  isLiquid: 'EVM'
 }
 
 export interface BaseWalletConstructor {

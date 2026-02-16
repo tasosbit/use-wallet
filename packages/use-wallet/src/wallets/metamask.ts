@@ -1,16 +1,11 @@
-import algosdk from 'algosdk'
-import { WalletState, addWallet, setAccounts, type State } from 'src/store'
-import { compareAccounts, flattenTxnGroup, isSignedTxn, isTransactionArray } from 'src/utils'
-import { BaseWallet } from 'src/wallets/base'
+import { WalletState, addWallet, setAccounts } from 'src/store'
+import { LiquidEvmBaseWallet, LiquidEvmOptions } from 'src/wallets/liquid-evm-base'
 import { WalletId } from 'src/wallets/types'
 import type { MetaMaskSDK } from '@metamask/sdk'
 import type { SDKProvider } from '@metamask/sdk'
-import type { Store } from '@tanstack/store'
 import type { WalletAccount, WalletConstructor } from 'src/wallets/types'
-import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import type { LiquidEvmSdk } from 'liquid-accounts-evm'
 
-export interface MetaMaskWalletOptions {
+export interface MetaMaskWalletOptions extends LiquidEvmOptions {
   dappMetadata?: {
     name?: string
     url?: string
@@ -45,15 +40,10 @@ const ICON = `data:image/svg+xml;base64,${btoa(`
 </svg>
 `)}`
 
-export class MetaMaskWallet extends BaseWallet {
+export class MetaMaskWallet extends LiquidEvmBaseWallet {
   private metamaskSdk: MetaMaskSDK | null = null
   private provider: SDKProvider | null = null
-  private options: MetaMaskWalletOptions
-  private liquidEvmSdk: LiquidEvmSdk | null = null
-  private algorandClient: AlgorandClient | null = null
-  private evmAddressMap: Map<string, string> = new Map() // algorandAddress -> evmAddress
-
-  protected store: Store<State>
+  protected options: MetaMaskWalletOptions
 
   constructor({
     id,
@@ -65,15 +55,15 @@ export class MetaMaskWallet extends BaseWallet {
   }: WalletConstructor<WalletId.METAMASK>) {
     super({ id, metadata, getAlgodClient, store, subscribe })
     this.options = options
-    this.store = store
   }
 
   static defaultMetadata = {
     name: 'MetaMask',
-    icon: ICON
+    icon: ICON,
+    isLiquid: 'EVM' as const
   }
 
-  private async initializeMetamaskSDK(): Promise<MetaMaskSDK> {
+  protected async initializeProvider(): Promise<void> {
     if (!this.metamaskSdk) {
       this.logger.info('Initializing MetaMask SDK...')
       const { MetaMaskSDK } = await import('@metamask/sdk')
@@ -88,13 +78,12 @@ export class MetaMaskWallet extends BaseWallet {
 
       this.logger.info('MetaMask SDK initialized')
     }
-    return this.metamaskSdk
   }
 
-  private async getProvider(): Promise<SDKProvider> {
+  protected async getProvider(): Promise<SDKProvider> {
     if (!this.provider) {
-      const sdk = await this.initializeMetamaskSDK()
-      this.provider = sdk.getProvider() || null
+      await this.initializeProvider()
+      this.provider = this.metamaskSdk!.getProvider() || null
 
       if (!this.provider) {
         throw new Error('MetaMask provider not available. Please install MetaMask.')
@@ -103,54 +92,8 @@ export class MetaMaskWallet extends BaseWallet {
     return this.provider
   }
 
-  private async initializeEvmSdk(): Promise<LiquidEvmSdk> {
-    if (!this.liquidEvmSdk) {
-      this.logger.info('Initializing Liquid EVM SDK...')
-
-      if (!this.algorandClient) {
-        const { AlgorandClient } = await import('@algorandfoundation/algokit-utils')
-        const algodClient = this.getAlgodClient()
-        this.algorandClient = AlgorandClient.fromClients({
-          algod: algodClient
-        })
-      }
-
-      const { LiquidEvmSdk } = await import('liquid-accounts-evm')
-      this.liquidEvmSdk = new LiquidEvmSdk({ algorand: this.algorandClient })
-
-      this.logger.info('Liquid EVM SDK initialized')
-    }
-    return this.liquidEvmSdk
-  }
-
-  private async deriveAlgorandAccounts(evmAddresses: string[]): Promise<WalletAccount[]> {
-    const liquidEvmSdk = await this.initializeEvmSdk()
-    const walletAccounts: WalletAccount[] = []
-
-    for (let i = 0; i < evmAddresses.length; i++) {
-      const evmAddress = evmAddresses[i]
-      const algorandAddress = await liquidEvmSdk.getAddress({ evmAddress })
-
-      this.evmAddressMap.set(algorandAddress, evmAddress)
-
-      walletAccounts.push({
-        name: `${this.metadata.name} Account ${i + 1}`,
-        address: algorandAddress
-      })
-    }
-
-    return walletAccounts
-  }
-
-  private bytesToHex(bytes: Uint8Array): string {
-    return '0x' + Array.from(bytes)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
-  }
-
-  private async signWithMetaMask(message: Uint8Array, evmAddress: string): Promise<string> {
+  protected async signWithProvider(message: Uint8Array, evmAddress: string): Promise<string> {
     const provider = await this.getProvider()
-
     const hexMessage = this.bytesToHex(message)
 
     try {
@@ -171,7 +114,7 @@ export class MetaMaskWallet extends BaseWallet {
   public connect = async (): Promise<WalletAccount[]> => {
     this.logger.info('Connecting...')
 
-    await this.initializeMetamaskSDK()
+    await this.initializeProvider()
     await this.initializeEvmSdk()
 
     const provider = await this.getProvider()
@@ -183,7 +126,7 @@ export class MetaMaskWallet extends BaseWallet {
         method: 'wallet_requestPermissions',
         params: [{ eth_accounts: {} }]
       })
-    } catch (error: any) {
+    } catch {
       // wallet_requestPermissions might not be supported in all versions
       // Fall back to eth_requestAccounts which will prompt if no permission exists
       this.logger.warn('wallet_requestPermissions not supported, falling back to eth_requestAccounts')
@@ -214,6 +157,10 @@ export class MetaMaskWallet extends BaseWallet {
     })
 
     this.logger.info('✅ Connected.', walletState)
+
+    if (this.options.uiHooks?.onConnect) {
+      this.options.uiHooks.onConnect({ evmAddress: evmAddresses[0], algorandAddress: activeAccount.address })
+    }
     return walletAccounts
   }
 
@@ -241,7 +188,7 @@ export class MetaMaskWallet extends BaseWallet {
 
       this.logger.info('Resuming session...')
 
-      await this.initializeMetamaskSDK()
+      await this.initializeProvider()
       await this.initializeEvmSdk()
 
       const provider = await this.getProvider()
@@ -255,21 +202,12 @@ export class MetaMaskWallet extends BaseWallet {
         throw new Error('No accounts found!')
       }
 
-      const walletAccounts = await this.deriveAlgorandAccounts(evmAddresses)
-      const match = compareAccounts(walletAccounts, walletState.accounts)
-
-      if (!match) {
-        this.logger.warn('Session accounts mismatch, updating accounts', {
-          prev: walletState.accounts,
-          current: walletAccounts
-        })
+      await this.resumeWithAccounts(evmAddresses, (accounts) => {
         setAccounts(this.store, {
           walletId: this.id,
-          accounts: walletAccounts
+          accounts
         })
-      }
-
-      this.logger.info('Session resumed')
+      })
     } catch (error: any) {
       this.logger.error('Error resuming session:', error.message)
       this.onDisconnect()
@@ -277,116 +215,5 @@ export class MetaMaskWallet extends BaseWallet {
     }
   }
 
-  private processTxns(
-    txnGroup: algosdk.Transaction[],
-    indexesToSign?: number[]
-  ): algosdk.Transaction[] {
-    const txnsToSign: algosdk.Transaction[] = []
 
-    txnGroup.forEach((txn, index) => {
-      const isIndexMatch = !indexesToSign || indexesToSign.includes(index)
-      const signer = txn.sender.toString()
-      const canSignTxn = this.addresses.includes(signer)
-
-      if (isIndexMatch && canSignTxn) {
-        txnsToSign.push(txn)
-      }
-    })
-
-    return txnsToSign
-  }
-
-  private processEncodedTxns(
-    txnGroup: Uint8Array[],
-    indexesToSign?: number[]
-  ): algosdk.Transaction[] {
-    const txnsToSign: algosdk.Transaction[] = []
-
-    txnGroup.forEach((txnBuffer, index) => {
-      const decodedObj = algosdk.msgpackRawDecode(txnBuffer)
-      const isSigned = isSignedTxn(decodedObj)
-
-      const txn: algosdk.Transaction = isSigned
-        ? algosdk.decodeSignedTransaction(txnBuffer).txn
-        : algosdk.decodeUnsignedTransaction(txnBuffer)
-
-      const isIndexMatch = !indexesToSign || indexesToSign.includes(index)
-      const signer = txn.sender.toString()
-      const canSignTxn = !isSigned && this.addresses.includes(signer)
-
-      if (isIndexMatch && canSignTxn) {
-        txnsToSign.push(txn)
-      }
-    })
-
-    return txnsToSign
-  }
-
-  public signTransactions = async <T extends algosdk.Transaction[] | Uint8Array[]>(
-    txnGroup: T | T[],
-    indexesToSign?: number[]
-  ): Promise<(Uint8Array | null)[]> => {
-    try {
-      this.logger.debug('Signing transactions...', { txnGroup, indexesToSign })
-
-      const evmSdk = await this.initializeEvmSdk()
-      let flatTxns: algosdk.Transaction[] = []
-
-      if (isTransactionArray(txnGroup)) {
-        flatTxns = flattenTxnGroup(txnGroup)
-      } else {
-        const flatEncoded: Uint8Array[] = flattenTxnGroup(txnGroup as Uint8Array[])
-        flatTxns = flatEncoded.map(txnBuffer => {
-          const decodedObj = algosdk.msgpackRawDecode(txnBuffer)
-          const isSigned = isSignedTxn(decodedObj)
-          return isSigned
-            ? algosdk.decodeSignedTransaction(txnBuffer).txn
-            : algosdk.decodeUnsignedTransaction(txnBuffer)
-        })
-      }
-
-      const txnsToSign = isTransactionArray(txnGroup)
-        ? this.processTxns(flatTxns, indexesToSign)
-        : this.processEncodedTxns(flattenTxnGroup(txnGroup as Uint8Array[]), indexesToSign)
-
-      if (txnsToSign.length === 0) {
-        this.logger.debug('No transactions to sign')
-        return flatTxns.map(() => null)
-      }
-
-      // Get the EVM address (all txns should be from the same wallet account)
-      const firstTxn = txnsToSign[0]
-      const algorandAddress = firstTxn.sender.toString()
-      const evmAddress = this.evmAddressMap.get(algorandAddress)
-
-      if (!evmAddress) {
-        throw new Error(`No EVM address found for Algorand address: ${algorandAddress}`)
-      }
-
-      // Sign all transactions in one call to avoid multiple MetaMask prompts
-      const signedBlobs = await evmSdk.signTxn({
-        evmAddress,
-        txns: flatTxns,
-        signMessage: (msg) => this.signWithMetaMask(msg, evmAddress)
-      })
-
-      // Build result array - use signed txns where we should sign, null otherwise
-      const result: (Uint8Array | null)[] = flatTxns.map((txn, index) => {
-        const isIndexMatch = !indexesToSign || indexesToSign.includes(index)
-        const signer = txn.sender.toString()
-        const canSignTxn = this.addresses.includes(signer)
-
-        if (isIndexMatch && canSignTxn) {
-          return signedBlobs[index]
-        }
-        return null
-      })
-
-      this.logger.debug('Transactions signed successfully', result)
-      return result
-    } catch (error: any) {
-      this.logger.error('Error signing transactions:', error.message)
-      throw error
-    }
-  }
 }
