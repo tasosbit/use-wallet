@@ -209,9 +209,7 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
 
     this.logger.info('✅ Connected.', walletState)
 
-    if (this.options.uiHooks?.onConnect) {
-      this.options.uiHooks.onConnect({ evmAddress: evmAddresses[0], algorandAddress: activeAccount.address })
-    }
+    this.notifyConnect(evmAddresses[0], activeAccount.address)
     return walletAccounts
   }
 

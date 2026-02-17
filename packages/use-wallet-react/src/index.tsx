@@ -139,6 +139,16 @@ export interface Wallet {
   setActiveAccount: (address: string) => void
 }
 
+export const useWalletManager = (): WalletManager => {
+  const context = React.useContext(WalletContext)
+
+  if (!context) {
+    throw new Error('useWalletManager must be used within the WalletProvider')
+  }
+
+  return context.manager
+}
+
 export const useWallet = () => {
   const context = React.useContext(WalletContext)
 

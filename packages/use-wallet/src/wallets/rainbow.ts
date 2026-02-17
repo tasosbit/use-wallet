@@ -186,6 +186,7 @@ export class RainbowWallet extends LiquidEvmBaseWallet {
       })
 
       this.logger.info('✅ Connected.', walletState)
+      this.notifyConnect(evmAddresses[0], activeAccount.address)
       return walletAccounts
     } catch (error: any) {
       this.logger.error('Error connecting:', error.message)

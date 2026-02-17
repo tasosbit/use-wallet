@@ -137,6 +137,15 @@ export type LiquidEvmMetadata = WalletMetadata & {
   isLiquid: 'EVM'
 }
 
+export interface UIHooks {
+  onBeforeSign?: (
+    txnGroup: algosdk.Transaction[] | Uint8Array[],
+    indexesToSign?: number[]
+  ) => Promise<void>
+  onAfterSign?: (success: boolean, errorMessage?: string) => void
+  onConnect?: (evmAccount: { evmAddress: string; algorandAddress: string }) => void
+}
+
 export interface BaseWalletConstructor {
   id: WalletId
   /** Optional wallet key override. Defaults to id. Used for skinned WalletConnect instances. */
@@ -145,6 +154,7 @@ export interface BaseWalletConstructor {
   getAlgodClient: () => algosdk.Algodv2
   store: Store<State>
   subscribe: (callback: (state: State) => void) => () => void
+  managerUIHooks?: UIHooks
 }
 
 export type WalletConstructor<T extends keyof WalletOptionsMap> = BaseWalletConstructor & {

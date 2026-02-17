@@ -26,6 +26,7 @@ import { resolveSkin } from 'src/wallets/skins'
 import {
   WalletId,
   type SupportedWallet,
+  type UIHooks,
   type WalletAccount,
   type WalletConfigMap,
   type WalletIdConfig,
@@ -50,6 +51,7 @@ export interface WalletManagerConfig {
 export class WalletManager {
   public _clients: Map<WalletKey, BaseWallet> = new Map()
   private baseNetworkConfig: Record<string, NetworkConfig>
+  private _uiHooks: UIHooks = {}
   public store: Store<State>
   public subscribe: (callback: (state: State) => void) => () => void
   public options: { resetNetwork: boolean }
@@ -294,7 +296,8 @@ export class WalletManager {
         options: walletOptions as any,
         getAlgodClient: this.getAlgodClient,
         store: this.store,
-        subscribe: this.subscribe
+        subscribe: this.subscribe,
+        managerUIHooks: this._uiHooks
       })
 
       this._clients.set(walletKey, walletInstance)
@@ -345,6 +348,16 @@ export class WalletManager {
       .map((wallet) => wallet?.disconnect())
 
     await Promise.all(promises)
+  }
+
+  // ---------- UI Hooks ----------------------------------------------- //
+
+  public registerUIHook<K extends keyof UIHooks>(name: K, callback: UIHooks[K]): void {
+    this._uiHooks[name] = callback
+  }
+
+  public unregisterUIHook(name: keyof UIHooks): void {
+    delete this._uiHooks[name]
   }
 
   // ---------- Network ----------------------------------------------- //

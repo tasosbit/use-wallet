@@ -7,6 +7,7 @@ import type algosdk from 'algosdk'
 import type {
   SignDataResponse,
   SignMetadata,
+  UIHooks,
   WalletAccount,
   WalletConstructor,
   WalletId,
@@ -27,6 +28,7 @@ export abstract class BaseWallet {
 
   protected store: Store<State>
   protected getAlgodClient: () => algosdk.Algodv2
+  protected managerUIHooks: UIHooks
 
   public subscribe: (callback: (state: State) => void) => () => void
 
@@ -38,13 +40,15 @@ export abstract class BaseWallet {
     metadata,
     store,
     subscribe,
-    getAlgodClient
+    getAlgodClient,
+    managerUIHooks
   }: WalletConstructor<WalletId>) {
     this.id = id
     this.walletKey = walletKey || id // Default to id for backward compatibility
     this.store = store
     this.subscribe = subscribe
     this.getAlgodClient = getAlgodClient
+    this.managerUIHooks = managerUIHooks || {}
 
     const ctor = this.constructor as WalletConstructorType
     this.metadata = { ...ctor.defaultMetadata, ...metadata }

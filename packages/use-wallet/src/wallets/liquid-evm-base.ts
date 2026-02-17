@@ -15,8 +15,11 @@ interface EvmAccount {
 export interface LiquidEvmOptions {
   uiHooks?: {
     onConnect?: (evmAccount: EvmAccount) => void
-    onBeforeSign?: (...args: Parameters<LiquidEvmBaseWallet['signTransactions']>) => Promise<void>
-    onAfterSign?: () => void
+    onBeforeSign?: (
+      txnGroup: algosdk.Transaction[] | Uint8Array[],
+      indexesToSign?: number[]
+    ) => Promise<void>
+    onAfterSign?: (success: boolean, errorMessage?: string) => void
   }
 }
 
@@ -231,9 +234,10 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
         throw new Error(`No EVM address found for Algorand address: ${algorandAddress}`)
       }
 
-      if (this.options.uiHooks?.onBeforeSign) {
-        this.logger.debug('Running onBeforeSign hook', { txnGroup, indexesToSign })
-        await this.options.uiHooks.onBeforeSign(txnGroup, indexesToSign)
+      const onBeforeSign = this.options.uiHooks?.onBeforeSign ?? this.managerUIHooks?.onBeforeSign
+      if (onBeforeSign) {
+        this.logger.debug('Running onBeforeSign hook', { flatTxns, indexesToSign })
+        await onBeforeSign(flatTxns, indexesToSign)
       }
 
       // Sign all transactions in one call to avoid multiple wallet prompts
@@ -243,10 +247,11 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
         signMessage: (msg) => this.signWithProvider(msg, evmAddress)
       })
 
-      if (this.options.uiHooks?.onAfterSign) {
+      const onAfterSign = this.options.uiHooks?.onAfterSign ?? this.managerUIHooks?.onAfterSign
+      if (onAfterSign) {
         this.logger.debug('Running onAfterSign hook')
         try {
-          this.options.uiHooks.onAfterSign()
+          onAfterSign(true)
         } catch (e) {}
       }
 
@@ -266,8 +271,10 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       return result
     } catch (error: any) {
       try {
-        this.options.uiHooks?.onAfterSign?.()
-      } catch(e) {}
+        const onAfterSignCleanup =
+          this.options.uiHooks?.onAfterSign ?? this.managerUIHooks?.onAfterSign
+        onAfterSignCleanup?.(false, error.message)
+      } catch (e) {}
       this.logger.error('Error signing transactions:', error.message)
       throw error
     }
@@ -300,5 +307,12 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
     }
 
     this.logger.info('Session resumed')
+  }
+
+  protected notifyConnect(evmAddress: string, algorandAddress: string): void {
+    const onConnect = this.options.uiHooks?.onConnect ?? this.managerUIHooks?.onConnect
+    if (onConnect) {
+      onConnect({ evmAddress, algorandAddress })
+    }
   }
 }
