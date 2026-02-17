@@ -83,6 +83,41 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
   protected abstract signWithProvider(message: Uint8Array, evmAddress: string): Promise<string>
 
   /**
+   * Ensure the wallet is on the Algorand chain (4160).
+   * Queries the current chain first, and only switches/adds if needed.
+   */
+  protected async ensureAlgorandChain(): Promise<void> {
+    const provider = await this.getProvider()
+    const { ALGORAND_CHAIN_ID_HEX, ALGORAND_EVM_CHAIN_CONFIG } = await import('liquid-accounts-evm')
+
+    const currentChainId = (await provider.request({ method: 'eth_chainId' })) as string
+
+    if (currentChainId === ALGORAND_CHAIN_ID_HEX) {
+      return
+    }
+
+    this.logger.info(`Wrong chain (${currentChainId}), switching to Algorand (${ALGORAND_CHAIN_ID_HEX})...`)
+
+    try {
+      await provider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: ALGORAND_CHAIN_ID_HEX }]
+      })
+    } catch (switchError: any) {
+      // 4902 = chain not added to wallet
+      if (switchError.code === 4902) {
+        this.logger.info('Algorand chain not found, adding it...')
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [ALGORAND_EVM_CHAIN_CONFIG]
+        })
+      } else {
+        throw switchError
+      }
+    }
+  }
+
+  /**
    * Initialize the Liquid EVM SDK for deriving Algorand addresses
    */
   protected async initializeEvmSdk(): Promise<LiquidEvmSdk> {
@@ -236,9 +271,12 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
 
       const onBeforeSign = this.options.uiHooks?.onBeforeSign ?? this.managerUIHooks?.onBeforeSign
       if (onBeforeSign) {
-        this.logger.debug('Running onBeforeSign hook', { flatTxns, indexesToSign })
-        await onBeforeSign(flatTxns, indexesToSign)
+        this.logger.debug('Running onBeforeSign hook', { txnGroup, indexesToSign })
+        await onBeforeSign(txnGroup as algosdk.Transaction[] | Uint8Array[], indexesToSign)
       }
+
+      // Ensure we're on the Algorand chain before requesting signatures
+      await this.ensureAlgorandChain()
 
       // Sign all transactions in one call to avoid multiple wallet prompts
       const signedBlobs = await evmSdk.signTxn({

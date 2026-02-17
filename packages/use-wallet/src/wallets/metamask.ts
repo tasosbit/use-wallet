@@ -45,16 +45,9 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
   private provider: SDKProvider | null = null
   protected options: MetaMaskWalletOptions
 
-  constructor({
-    id,
-    store,
-    subscribe,
-    getAlgodClient,
-    options = {},
-    metadata = {}
-  }: WalletConstructor<WalletId.METAMASK>) {
-    super({ id, metadata, getAlgodClient, store, subscribe })
-    this.options = options
+  constructor(params: WalletConstructor<WalletId.METAMASK>) {
+    super(params)
+    this.options = params.options || {}
   }
 
   static defaultMetadata = {
@@ -92,33 +85,6 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
     return this.provider
   }
 
-  /**
-   * Ensure the wallet is on the Algorand chain. If not, switch to it.
-   * If the chain hasn't been added yet, add it first.
-   */
-  private async ensureAlgorandChain(): Promise<void> {
-    const provider = await this.getProvider()
-    const { ALGORAND_CHAIN_ID_HEX, ALGORAND_EVM_CHAIN_CONFIG } = await import('liquid-accounts-evm')
-
-    try {
-      await provider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: ALGORAND_CHAIN_ID_HEX }]
-      })
-    } catch (switchError: any) {
-      // 4902 = chain not added to wallet
-      if (switchError.code === 4902) {
-        this.logger.info('Algorand chain not found, adding it...')
-        await provider.request({
-          method: 'wallet_addEthereumChain',
-          params: [ALGORAND_EVM_CHAIN_CONFIG]
-        })
-      } else {
-        throw switchError
-      }
-    }
-  }
-
   protected async signWithProvider(message: Uint8Array, evmAddress: string): Promise<string> {
     const provider = await this.getProvider()
     const { formatEIP712Message, EIP712_DOMAIN, EIP712_TYPES } = await import('liquid-accounts-evm')
@@ -137,29 +103,12 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
       message: formatEIP712Message(message)
     })
 
-    try {
-      const signature = await provider.request({
-        method: 'eth_signTypedData_v4',
-        params: [evmAddress, typedData]
-      }) as string
+    const signature = await provider.request({
+      method: 'eth_signTypedData_v4',
+      params: [evmAddress, typedData]
+    }) as string
 
-      return signature
-    } catch (error: any) {
-      if (error.code === 4001) {
-        throw new Error('User rejected the signing request')
-      }
-
-      // Signing failed, possibly due to wrong chain — switch to Algorand chain and retry
-      this.logger.info('Signing failed, attempting to switch to Algorand chain...', error.message)
-      await this.ensureAlgorandChain()
-
-      const retrySignature = await provider.request({
-        method: 'eth_signTypedData_v4',
-        params: [evmAddress, typedData]
-      }) as string
-
-      return retrySignature
-    }
+    return signature
   }
 
   public connect = async (): Promise<WalletAccount[]> => {
@@ -169,19 +118,6 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
     await this.initializeEvmSdk()
 
     const provider = await this.getProvider()
-
-    try {
-      // Request permissions to force account selection prompt
-      this.logger.info('Requesting MetaMask permissions...')
-      await provider.request({
-        method: 'wallet_requestPermissions',
-        params: [{ eth_accounts: {} }]
-      })
-    } catch {
-      // wallet_requestPermissions might not be supported in all versions
-      // Fall back to eth_requestAccounts which will prompt if no permission exists
-      this.logger.warn('wallet_requestPermissions not supported, falling back to eth_requestAccounts')
-    }
 
     const evmAddresses = await provider.request({
       method: 'eth_requestAccounts'
@@ -216,8 +152,17 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
   public disconnect = async (): Promise<void> => {
     this.logger.info('Disconnecting...')
 
-    // Clear provider reference to ensure fresh provider retrieval on reconnect
-    // Keep SDK instance alive - wallet_requestPermissions will handle account selection
+    if (this.metamaskSdk) {
+      // Sends TERMINATE message to MetaMask Mobile, clears ".sdk-comm" channel config
+      // from localStorage, and generates a new channelId so the next connect()
+      // shows a fresh QR code instead of resuming the old session.
+      // The SDK instance is kept alive — it resets itself internally and the docs
+      // confirm eth_requestAccounts works again after terminate(). Nulling the SDK
+      // here causes getProvider() to fail on reconnect due to module-level state
+      // conflicts with re-instantiation.
+      await this.metamaskSdk.terminate()
+    }
+
     this.provider = null
     this.evmAddressMap.clear()
     this.onDisconnect()

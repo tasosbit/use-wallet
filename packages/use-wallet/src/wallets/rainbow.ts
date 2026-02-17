@@ -40,16 +40,9 @@ export class RainbowWallet extends LiquidEvmBaseWallet {
   private provider: EIP1193Provider | null = null
   protected options: RainbowWalletOptions
 
-  constructor({
-    id,
-    store,
-    subscribe,
-    getAlgodClient,
-    options = {},
-    metadata = {}
-  }: WalletConstructor<WalletId.RAINBOW>) {
-    super({ id, metadata, getAlgodClient, store, subscribe })
-    this.options = options
+  constructor(params: WalletConstructor<WalletId.RAINBOW>) {
+    super(params)
+    this.options = params.options || {}
   }
 
   static defaultMetadata = {
