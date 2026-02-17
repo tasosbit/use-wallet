@@ -119,12 +119,26 @@ export class RainbowWallet extends LiquidEvmBaseWallet {
 
   protected async signWithProvider(message: Uint8Array, evmAddress: string): Promise<string> {
     const provider = await this.getProvider()
-    const hexMessage = this.bytesToHex(message)
+    const { formatEIP712Message, EIP712_DOMAIN, EIP712_TYPES } = await import('liquid-accounts-evm')
+
+    const typedData = JSON.stringify({
+      types: {
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'version', type: 'string' },
+          { name: 'chainId', type: 'uint256' }
+        ],
+        ...EIP712_TYPES
+      },
+      domain: EIP712_DOMAIN,
+      primaryType: 'AlgorandTransaction',
+      message: formatEIP712Message(message)
+    })
 
     try {
       const signature = await provider.request({
-        method: 'personal_sign',
-        params: [hexMessage, evmAddress]
+        method: 'eth_signTypedData_v4',
+        params: [evmAddress, typedData]
       } as any) as string
 
       return signature

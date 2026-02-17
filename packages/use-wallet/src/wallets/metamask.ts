@@ -92,14 +92,55 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
     return this.provider
   }
 
+  /**
+   * Ensure the wallet is on the Algorand chain. If not, switch to it.
+   * If the chain hasn't been added yet, add it first.
+   */
+  private async ensureAlgorandChain(): Promise<void> {
+    const provider = await this.getProvider()
+    const { ALGORAND_CHAIN_ID_HEX, ALGORAND_EVM_CHAIN_CONFIG } = await import('liquid-accounts-evm')
+
+    try {
+      await provider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: ALGORAND_CHAIN_ID_HEX }]
+      })
+    } catch (switchError: any) {
+      // 4902 = chain not added to wallet
+      if (switchError.code === 4902) {
+        this.logger.info('Algorand chain not found, adding it...')
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [ALGORAND_EVM_CHAIN_CONFIG]
+        })
+      } else {
+        throw switchError
+      }
+    }
+  }
+
   protected async signWithProvider(message: Uint8Array, evmAddress: string): Promise<string> {
     const provider = await this.getProvider()
-    const hexMessage = this.bytesToHex(message)
+    const { formatEIP712Message, EIP712_DOMAIN, EIP712_TYPES } = await import('liquid-accounts-evm')
+
+    const typedData = JSON.stringify({
+      types: {
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'version', type: 'string' },
+          { name: 'chainId', type: 'uint256' }
+        ],
+        ...EIP712_TYPES
+      },
+      domain: EIP712_DOMAIN,
+      primaryType: 'AlgorandTransaction',
+      message: formatEIP712Message(message)
+    })
 
     try {
       const signature = await provider.request({
-        method: 'personal_sign',
-        params: [hexMessage, evmAddress]
+        method: 'eth_signTypedData_v4',
+        params: [evmAddress, typedData]
       }) as string
 
       return signature
@@ -107,7 +148,17 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
       if (error.code === 4001) {
         throw new Error('User rejected the signing request')
       }
-      throw error
+
+      // Signing failed, possibly due to wrong chain — switch to Algorand chain and retry
+      this.logger.info('Signing failed, attempting to switch to Algorand chain...', error.message)
+      await this.ensureAlgorandChain()
+
+      const retrySignature = await provider.request({
+        method: 'eth_signTypedData_v4',
+        params: [evmAddress, typedData]
+      }) as string
+
+      return retrySignature
     }
   }
 

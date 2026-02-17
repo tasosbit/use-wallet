@@ -8,6 +8,7 @@ onlyBuiltDependencies:
   - canvas
   - cbor-extract
   - esbuild
+  - keccak
   - unrs-resolver
   - utf-8-validate
   - vue-demi
