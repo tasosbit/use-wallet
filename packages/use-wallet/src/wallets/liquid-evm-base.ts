@@ -4,7 +4,7 @@ import { BaseWallet } from 'src/wallets/base'
 import type { Store } from '@tanstack/store'
 import type { LiquidEvmMetadata, WalletAccount, WalletConstructor } from 'src/wallets/types'
 import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import type { LiquidEvmSdk } from 'liquid-accounts-evm'
+import type { LiquidEvmSdk, SignTypedDataParams } from 'liquid-accounts-evm'
 import type { State } from 'src/store'
 
 interface EvmAccount {
@@ -75,12 +75,12 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
   protected abstract getProvider(): Promise<any>
 
   /**
-   * Sign a message with the specific EVM wallet provider.
-   * @param message - The message bytes to sign
+   * Sign EIP-712 typed data with the specific EVM wallet provider.
+   * @param typedData - The EIP-712 typed data (domain, types, primaryType, message)
    * @param evmAddress - The EVM address to sign with
    * @returns The signature as a hex string (with 0x prefix)
    */
-  protected abstract signWithProvider(message: Uint8Array, evmAddress: string): Promise<string>
+  protected abstract signWithProvider(typedData: SignTypedDataParams, evmAddress: string): Promise<string>
 
   /**
    * Ensure the wallet is on the Algorand chain (4160).
@@ -282,7 +282,7 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       const signedBlobs = await evmSdk.signTxn({
         evmAddress,
         txns: flatTxns,
-        signMessage: (msg) => this.signWithProvider(msg, evmAddress)
+        signMessage: (typedData) => this.signWithProvider(typedData, evmAddress)
       })
 
       const onAfterSign = this.options.uiHooks?.onAfterSign ?? this.managerUIHooks?.onAfterSign
