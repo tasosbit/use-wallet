@@ -3,7 +3,7 @@ import {
   WalletId,
   WalletManagerPlugin,
   type SupportedWallet
-} from '@txnlab/use-wallet-vue'
+} from '@d13co/use-wallet-vue'
 import { defineNuxtPlugin } from '#app'
 
 export default defineNuxtPlugin((nuxtApp) => {

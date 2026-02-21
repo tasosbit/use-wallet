@@ -3,7 +3,7 @@ import {
   WalletId,
   WalletManagerPlugin,
   type SupportedWallet
-} from '@txnlab/use-wallet-vue'
+} from '@d13co/use-wallet-vue'
 import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'

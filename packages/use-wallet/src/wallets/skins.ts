@@ -72,7 +72,7 @@ const customSkins = new Map<string, WalletConnectSkin>()
  *
  * @example
  * ```typescript
- * import { registerSkin } from '@txnlab/use-wallet'
+ * import { registerSkin } from '@d13co/use-wallet'
  *
  * registerSkin({
  *   id: 'mywallet',

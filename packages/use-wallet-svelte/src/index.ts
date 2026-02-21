@@ -12,9 +12,9 @@ import {
   type WalletKey,
   WalletManager,
   WalletMetadata
-} from '@txnlab/use-wallet'
+} from '@d13co/use-wallet'
 
-export * from '@txnlab/use-wallet'
+export * from '@d13co/use-wallet'
 
 export const useWalletContext = (manager: WalletManager) => {
   setContext('walletManager', manager)

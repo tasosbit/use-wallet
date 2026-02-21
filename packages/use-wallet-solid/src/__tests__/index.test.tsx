@@ -11,7 +11,7 @@ import {
   type State,
   type WalletAccount,
   ManagerStatus
-} from '@txnlab/use-wallet'
+} from '@d13co/use-wallet'
 import algosdk from 'algosdk'
 import { For, Show, createEffect, createSignal } from 'solid-js'
 import { WalletProvider, useWallet, useWalletManager, useNetwork } from '../index'
@@ -62,8 +62,8 @@ const mocks = vi.hoisted(() => {
   }
 })
 
-vi.mock('@txnlab/use-wallet', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('@txnlab/use-wallet')>()
+vi.mock('@d13co/use-wallet', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@d13co/use-wallet')>()
   return {
     ...mod,
     DeflyWallet: class extends mod.BaseWallet {

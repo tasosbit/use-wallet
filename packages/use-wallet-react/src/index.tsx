@@ -10,11 +10,11 @@ import {
   type WalletAccount,
   type WalletKey,
   type WalletMetadata
-} from '@txnlab/use-wallet'
+} from '@d13co/use-wallet'
 import algosdk from 'algosdk'
 import * as React from 'react'
 
-export * from '@txnlab/use-wallet'
+export * from '@d13co/use-wallet'
 
 interface IWalletContext {
   manager: WalletManager

@@ -1,6 +1,6 @@
 {
-  "name": "@txnlab/use-wallet-svelte",
-  "version": "4.5.0",
+  "name": "@d13co/use-wallet-svelte",
+  "version": "4.5.1",
   "description": "Svelte library for integrating Algorand wallets into decentralized applications",
   "author": "Andrew Funk <acfunk@gmail.com>",
   "license": "MIT",
@@ -39,7 +39,7 @@
   ],
   "dependencies": {
     "@tanstack/svelte-store": "0.9.0",
-    "@txnlab/use-wallet": "workspace:*"
+    "@d13co/use-wallet": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/svelte": "5.3.1",

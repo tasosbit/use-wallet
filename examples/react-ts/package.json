@@ -13,7 +13,7 @@
     "@blockshake/defly-connect": "^1.2.1",
     "@noble/ed25519": "3.0.0",
     "@perawallet/connect": "^1.4.1",
-    "@txnlab/use-wallet-react": "workspace:*",
+    "@d13co/use-wallet-react": "workspace:*",
     "@walletconnect/modal": "^2.7.0",
     "@walletconnect/sign-client": "^2.23.4",
     "@web3auth/base": "9.7.0",

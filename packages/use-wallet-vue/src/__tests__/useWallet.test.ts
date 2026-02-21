@@ -11,7 +11,7 @@ import {
   DEFAULT_STATE,
   type State,
   type WalletAccount
-} from '@txnlab/use-wallet'
+} from '@d13co/use-wallet'
 import { mount } from '@vue/test-utils'
 import algosdk from 'algosdk'
 import { inject, nextTick, ref, type InjectionKey } from 'vue'
@@ -39,8 +39,8 @@ const mocks = vi.hoisted(() => {
   }
 })
 
-vi.mock('@txnlab/use-wallet', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('@txnlab/use-wallet')>()
+vi.mock('@d13co/use-wallet', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@d13co/use-wallet')>()
   return {
     ...mod,
     DeflyWallet: class extends mod.BaseWallet {

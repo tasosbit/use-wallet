@@ -77,15 +77,15 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet-react':
+        specifier: workspace:*
+        version: link:../../packages/use-wallet-react
       '@noble/ed25519':
         specifier: 3.0.0
         version: 3.0.0
       '@perawallet/connect':
         specifier: ^1.4.1
         version: 1.4.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@txnlab/use-wallet-react':
-        specifier: workspace:*
-        version: link:../../packages/use-wallet-react
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -150,18 +150,18 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet':
+        specifier: workspace:*
+        version: link:../../packages/use-wallet
+      '@d13co/use-wallet-vue':
+        specifier: workspace:*
+        version: link:../../packages/use-wallet-vue
       '@noble/ed25519':
         specifier: 3.0.0
         version: 3.0.0
       '@perawallet/connect':
         specifier: ^1.4.1
         version: 1.4.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@txnlab/use-wallet':
-        specifier: workspace:*
-        version: link:../../packages/use-wallet
-      '@txnlab/use-wallet-vue':
-        specifier: workspace:*
-        version: link:../../packages/use-wallet-vue
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -223,15 +223,15 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet-react':
+        specifier: workspace:*
+        version: link:../../packages/use-wallet-react
       '@noble/ed25519':
         specifier: 3.0.0
         version: 3.0.0
       '@perawallet/connect':
         specifier: ^1.4.1
         version: 1.4.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@txnlab/use-wallet-react':
-        specifier: workspace:*
-        version: link:../../packages/use-wallet-react
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -305,15 +305,15 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet-solid':
+        specifier: workspace:*
+        version: link:../../packages/use-wallet-solid
       '@noble/ed25519':
         specifier: 3.0.0
         version: 3.0.0
       '@perawallet/connect':
         specifier: ^1.4.1
         version: 1.4.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@txnlab/use-wallet-solid':
-        specifier: workspace:*
-        version: link:../../packages/use-wallet-solid
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -366,15 +366,15 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet-svelte':
+        specifier: workspace:*
+        version: link:../../packages/use-wallet-svelte
       '@noble/ed25519':
         specifier: 3.0.0
         version: 3.0.0
       '@perawallet/connect':
         specifier: ^1.4.1
         version: 1.4.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@txnlab/use-wallet-svelte':
-        specifier: workspace:*
-        version: link:../../packages/use-wallet-svelte
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -436,15 +436,15 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet':
+        specifier: workspace:*
+        version: link:../../packages/use-wallet
       '@noble/ed25519':
         specifier: 3.0.0
         version: 3.0.0
       '@perawallet/connect':
         specifier: ^1.4.1
         version: 1.4.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@txnlab/use-wallet':
-        specifier: workspace:*
-        version: link:../../packages/use-wallet
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -494,15 +494,15 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet-vue':
+        specifier: workspace:*
+        version: link:../../packages/use-wallet-vue
       '@noble/ed25519':
         specifier: 3.0.0
         version: 3.0.0
       '@perawallet/connect':
         specifier: ^1.4.1
         version: 1.4.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@txnlab/use-wallet-vue':
-        specifier: workspace:*
-        version: link:../../packages/use-wallet-vue
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -646,6 +646,9 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet':
+        specifier: workspace:*
+        version: link:../use-wallet
       '@magic-ext/algorand':
         specifier: ^24.4.2
         version: 24.4.2
@@ -655,9 +658,6 @@ importers:
       '@tanstack/react-store':
         specifier: 0.8.0
         version: 0.8.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@txnlab/use-wallet':
-        specifier: workspace:*
-        version: link:../use-wallet
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -698,6 +698,9 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet':
+        specifier: workspace:*
+        version: link:../use-wallet
       '@magic-ext/algorand':
         specifier: ^24.4.2
         version: 24.4.2
@@ -707,9 +710,6 @@ importers:
       '@tanstack/solid-store':
         specifier: 0.8.0
         version: 0.8.0(solid-js@1.9.11)
-      '@txnlab/use-wallet':
-        specifier: workspace:*
-        version: link:../use-wallet
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -747,6 +747,9 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet':
+        specifier: workspace:*
+        version: link:../use-wallet
       '@magic-ext/algorand':
         specifier: ^24.4.2
         version: 24.4.2
@@ -756,9 +759,6 @@ importers:
       '@tanstack/svelte-store':
         specifier: 0.9.0
         version: 0.9.0(svelte@5.49.1)
-      '@txnlab/use-wallet':
-        specifier: workspace:*
-        version: link:../use-wallet
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)
@@ -793,6 +793,9 @@ importers:
       '@blockshake/defly-connect':
         specifier: ^1.2.1
         version: 1.2.1(algosdk@3.5.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@d13co/use-wallet':
+        specifier: workspace:*
+        version: link:../use-wallet
       '@magic-ext/algorand':
         specifier: ^24.4.2
         version: 24.4.2
@@ -802,9 +805,6 @@ importers:
       '@tanstack/vue-store':
         specifier: 0.8.0
         version: 0.8.0(vue@3.5.27(typescript@5.9.3))
-      '@txnlab/use-wallet':
-        specifier: workspace:*
-        version: link:../use-wallet
       '@walletconnect/modal':
         specifier: ^2.7.0
         version: 2.7.0(@types/react@18.3.27)(react@18.3.1)

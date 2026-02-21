@@ -7,7 +7,7 @@ import {
   WalletId,
   useWallet,
   type Wallet
-} from '@txnlab/use-wallet-vue'
+} from '@d13co/use-wallet-vue'
 import algosdk from 'algosdk'
 import { canonify } from 'canonify'
 import { ref } from 'vue'

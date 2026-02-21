@@ -13,7 +13,7 @@ import {
   type SignDataResponse,
   ScopeType,
   ManagerStatus
-} from '@txnlab/use-wallet'
+} from '@d13co/use-wallet'
 import algosdk from 'algosdk'
 import { getContext, setContext } from 'svelte'
 import type { Mock } from 'vitest'
@@ -73,8 +73,8 @@ const mocks = vi.hoisted(() => {
   }
 })
 
-vi.mock('@txnlab/use-wallet', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('@txnlab/use-wallet')>()
+vi.mock('@d13co/use-wallet', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@d13co/use-wallet')>()
   return {
     ...mod,
     LuteWallet: class extends mod.BaseWallet {
