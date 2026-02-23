@@ -6,7 +6,7 @@
     WalletId,
     WalletManager,
     type SupportedWallet
-  } from '@d13co/use-wallet-svelte'
+  } from '@txnlab/use-wallet-svelte'
 
   const wallets: SupportedWallet[] = [
     WalletId.DEFLY,

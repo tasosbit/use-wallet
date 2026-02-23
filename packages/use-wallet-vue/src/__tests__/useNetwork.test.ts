@@ -6,7 +6,7 @@ import {
   DEFAULT_NETWORK_CONFIG,
   type AlgodConfig,
   type State
-} from '@d13co/use-wallet'
+} from '@txnlab/use-wallet'
 import { mount } from '@vue/test-utils'
 import algosdk from 'algosdk'
 import { computed, inject, nextTick, ref, type InjectionKey } from 'vue'

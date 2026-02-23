@@ -9,7 +9,7 @@ import {
   useWallet,
   type Siwa,
   type Wallet
-} from '@d13co/use-wallet-vue'
+} from '@txnlab/use-wallet-vue'
 import algosdk from 'algosdk'
 import { canonify } from 'canonify'
 import { ref } from 'vue'

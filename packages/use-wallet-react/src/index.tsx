@@ -10,11 +10,11 @@ import {
   type WalletAccount,
   type WalletKey,
   type WalletMetadata
-} from '@d13co/use-wallet'
+} from '@txnlab/use-wallet'
 import algosdk from 'algosdk'
 import * as React from 'react'
 
-export * from '@d13co/use-wallet'
+export * from '@txnlab/use-wallet'
 
 interface IWalletContext {
   manager: WalletManager
@@ -137,6 +137,8 @@ export interface Wallet {
   disconnect: () => Promise<void>
   setActive: () => void
   setActiveAccount: (address: string) => void
+  /** EIP-1193 provider for EVM operations. Only available on Liquid EVM wallets. */
+  getEvmProvider?: () => Promise<any>
 }
 
 export const useWalletManager = (): WalletManager => {
@@ -167,6 +169,7 @@ export const useWallet = () => {
   const transformToWallet = React.useCallback(
     (wallet: BaseWallet): Wallet => {
       const walletState = walletStateMap[wallet.walletKey]
+      const hasEvmProvider = 'getEvmProvider' in wallet && typeof (wallet as any).getEvmProvider === 'function'
       return {
         id: wallet.id,
         walletKey: wallet.walletKey,
@@ -179,7 +182,8 @@ export const useWallet = () => {
         connect: (args) => wallet.connect(args),
         disconnect: () => wallet.disconnect(),
         setActive: () => wallet.setActive(),
-        setActiveAccount: (addr) => wallet.setActiveAccount(addr)
+        setActiveAccount: (addr) => wallet.setActiveAccount(addr),
+        ...(hasEvmProvider && { getEvmProvider: () => (wallet as any).getEvmProvider() })
       }
     },
     [walletStateMap, activeWalletId]

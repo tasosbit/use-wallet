@@ -8,7 +8,7 @@ import {
   type WalletId,
   type SignMetadata,
   type SignDataResponse
-} from '@d13co/use-wallet'
+} from '@txnlab/use-wallet'
 import algosdk from 'algosdk'
 import { computed, inject, ref } from 'vue'
 

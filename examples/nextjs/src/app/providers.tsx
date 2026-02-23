@@ -6,7 +6,7 @@ import {
   WalletManager,
   WalletProvider,
   type SupportedWallet
-} from '@d13co/use-wallet-react'
+} from '@txnlab/use-wallet-react'
 
 const wallets: SupportedWallet[] = [
   WalletId.DEFLY,
@@ -32,7 +32,8 @@ const wallets: SupportedWallet[] = [
     options: { apiKey: 'pk_live_D17FD8D89621B5F3' }
   },
   WalletId.MNEMONIC,
-  WalletId.W3_WALLET
+  WalletId.W3_WALLET,
+  WalletId.METAMASK
 ]
 
 // Add Web3Auth if client ID is configured

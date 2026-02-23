@@ -6,7 +6,7 @@ import {
   Siwa,
   WalletId,
   WalletManager
-} from '@d13co/use-wallet'
+} from '@txnlab/use-wallet'
 import algosdk from 'algosdk'
 import { canonify } from 'canonify'
 

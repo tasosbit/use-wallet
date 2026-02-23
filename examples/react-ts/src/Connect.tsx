@@ -6,7 +6,7 @@ import {
   useWallet,
   type Wallet,
   WalletId
-} from '@d13co/use-wallet-react'
+} from '@txnlab/use-wallet-react'
 import algosdk from 'algosdk'
 import { canonify } from 'canonify'
 import * as React from 'react'

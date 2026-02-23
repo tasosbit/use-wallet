@@ -1,5 +1,5 @@
 {
-  "name": "@d13co/use-wallet",
+  "name": "@txnlab/use-wallet",
   "version": "4.5.1",
   "description": "TypeScript library for integrating Algorand wallets into decentralized applications",
   "author": "Doug Richar <drichar@gmail.com>",

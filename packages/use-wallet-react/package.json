@@ -1,5 +1,5 @@
 {
-  "name": "@d13co/use-wallet-react",
+  "name": "@txnlab/use-wallet-react",
   "version": "4.5.1",
   "description": "React library for integrating Algorand wallets into decentralized applications",
   "author": "Doug Richar <drichar@gmail.com>",
@@ -39,7 +39,7 @@
   ],
   "dependencies": {
     "@tanstack/react-store": "0.8.0",
-    "@d13co/use-wallet": "workspace:*"
+    "@txnlab/use-wallet": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "18.3.27",
