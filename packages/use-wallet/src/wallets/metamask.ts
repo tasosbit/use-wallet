@@ -73,7 +73,7 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
     }
   }
 
-  protected async getProvider(): Promise<SDKProvider> {
+  public async getEvmProvider(): Promise<SDKProvider> {
     if (!this.provider) {
       await this.initializeProvider()
       this.provider = this.metamaskSdk!.getProvider() || null
@@ -86,7 +86,7 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
   }
 
   protected async signWithProvider(typedData: import('liquid-accounts-evm').SignTypedDataParams, evmAddress: string): Promise<string> {
-    const provider = await this.getProvider()
+    const provider = await this.getEvmProvider()
 
     return await provider.request({
       method: 'eth_signTypedData_v4',
@@ -100,7 +100,7 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
     await this.initializeProvider()
     await this.initializeEvmSdk()
 
-    const provider = await this.getProvider()
+    const provider = await this.getEvmProvider()
 
     const evmAddresses = await provider.request({
       method: 'eth_requestAccounts'
@@ -141,7 +141,7 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
       // shows a fresh QR code instead of resuming the old session.
       // The SDK instance is kept alive — it resets itself internally and the docs
       // confirm eth_requestAccounts works again after terminate(). Nulling the SDK
-      // here causes getProvider() to fail on reconnect due to module-level state
+      // here causes getEvmProvider() to fail on reconnect due to module-level state
       // conflicts with re-instantiation.
       await this.metamaskSdk.terminate()
     }
@@ -168,7 +168,7 @@ export class MetaMaskWallet extends LiquidEvmBaseWallet {
       await this.initializeProvider()
       await this.initializeEvmSdk()
 
-      const provider = await this.getProvider()
+      const provider = await this.getEvmProvider()
 
       const evmAddresses = await provider.request({
         method: 'eth_accounts'

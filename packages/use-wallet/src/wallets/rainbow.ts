@@ -85,7 +85,7 @@ export class RainbowWallet extends LiquidEvmBaseWallet {
     this.logger.warn('Rainbow extension not detected. Note: Rainbow mobile app requires WalletConnect.')
   }
 
-  protected async getProvider(): Promise<EIP1193Provider> {
+  public async getEvmProvider(): Promise<EIP1193Provider> {
     if (!this.provider) {
       await this.initializeProvider()
 
@@ -111,7 +111,7 @@ export class RainbowWallet extends LiquidEvmBaseWallet {
   }
 
   protected async signWithProvider(typedData: import('liquid-accounts-evm').SignTypedDataParams, evmAddress: string): Promise<string> {
-    const provider = await this.getProvider()
+    const provider = await this.getEvmProvider()
 
     try {
       return await provider.request({
@@ -132,7 +132,7 @@ export class RainbowWallet extends LiquidEvmBaseWallet {
     await this.initializeProvider()
     await this.initializeEvmSdk()
 
-    const provider = await this.getProvider()
+    const provider = await this.getEvmProvider()
 
     try {
       // Request wallet connection
@@ -196,7 +196,7 @@ export class RainbowWallet extends LiquidEvmBaseWallet {
       await this.initializeProvider()
       await this.initializeEvmSdk()
 
-      const provider = await this.getProvider()
+      const provider = await this.getEvmProvider()
 
       const evmAddresses = await provider.request({
         method: 'eth_accounts'

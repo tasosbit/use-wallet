@@ -35,7 +35,7 @@ export interface LiquidEvmOptions {
  *
  * Subclasses must implement provider-specific methods:
  * - initializeProvider(): Initialize the specific EVM wallet SDK/provider
- * - getProvider(): Get the EVM provider instance
+ * - getEvmProvider(): Get the EVM provider instance
  * - signWithProvider(): Sign a message with the specific EVM wallet
  */
 export abstract class LiquidEvmBaseWallet extends BaseWallet {
@@ -69,10 +69,11 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
   protected abstract initializeProvider(): Promise<void>
 
   /**
-   * Get the EVM provider instance.
-   * This should return the provider object that can make eth_* RPC calls.
+   * Get the EVM provider (EIP-1193 compatible).
+   * Returns the provider object that can make eth_* RPC calls.
+   * Consumers can use this for arbitrary EVM operations (e.g., bridge transactions).
    */
-  protected abstract getProvider(): Promise<any>
+  public abstract getEvmProvider(): Promise<any>
 
   /**
    * Sign EIP-712 typed data with the specific EVM wallet provider.
@@ -87,7 +88,7 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
    * Queries the current chain first, and only switches/adds if needed.
    */
   protected async ensureAlgorandChain(): Promise<void> {
-    const provider = await this.getProvider()
+    const provider = await this.getEvmProvider()
     const { ALGORAND_CHAIN_ID_HEX, ALGORAND_EVM_CHAIN_CONFIG } = await import('liquid-accounts-evm')
 
     const currentChainId = (await provider.request({ method: 'eth_chainId' })) as string
@@ -155,7 +156,8 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
 
       walletAccounts.push({
         name: `${this.metadata.name} ${evmAddress}`,
-        address: algorandAddress
+        address: algorandAddress,
+        metadata: { evmAddress }
       })
     }
 
@@ -331,6 +333,14 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
     if (!walletState) {
       this.logger.info('No session to resume')
       return
+    }
+
+    // Rebuild evmAddressMap from persisted account metadata
+    for (const account of walletState.accounts) {
+      const evmAddr = account.metadata?.evmAddress as string | undefined
+      if (evmAddr) {
+        this.evmAddressMap.set(account.address, evmAddr)
+      }
     }
 
     const walletAccounts = await this.deriveAlgorandAccounts(evmAddresses)

@@ -165,6 +165,7 @@ export type WalletConstructor<T extends keyof WalletOptionsMap> = BaseWalletCons
 export type WalletAccount = {
   name: string
   address: string
+  metadata?: Record<string, unknown>
 }
 
 // Transaction types
