@@ -142,9 +142,14 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
   }
 
   /**
-   * Derive Algorand accounts from EVM addresses
+   * Derive Algorand accounts from EVM addresses.
+   * @param evmAddresses - EVM addresses to derive Algorand accounts from
+   * @param connectorInfo - Optional connector name/icon to include in account metadata
    */
-  protected async deriveAlgorandAccounts(evmAddresses: string[]): Promise<WalletAccount[]> {
+  protected async deriveAlgorandAccounts(
+    evmAddresses: string[],
+    connectorInfo?: { name?: string; icon?: string }
+  ): Promise<WalletAccount[]> {
     const liquidEvmSdk = await this.initializeEvmSdk()
     const walletAccounts: WalletAccount[] = []
 
@@ -154,10 +159,14 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
 
       this.evmAddressMap.set(algorandAddress, evmAddress)
 
+      const metadata: Record<string, unknown> = { evmAddress }
+      if (connectorInfo?.name) metadata.connectorName = connectorInfo.name
+      if (connectorInfo?.icon) metadata.connectorIcon = connectorInfo.icon
+
       walletAccounts.push({
         name: `${this.metadata.name} ${evmAddress}`,
         address: algorandAddress,
-        metadata: { evmAddress }
+        metadata
       })
     }
 
@@ -265,7 +274,21 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       // Get the EVM address (all txns should be from the same wallet account)
       const firstTxn = txnsToSign[0]
       const algorandAddress = firstTxn.sender.toString()
-      const evmAddress = this.evmAddressMap.get(algorandAddress)
+      let evmAddress = this.evmAddressMap.get(algorandAddress)
+
+      // Fallback: rebuild evmAddressMap from persisted account metadata
+      if (!evmAddress) {
+        const walletState = this.store.state.wallets[this.id]
+        if (walletState) {
+          for (const account of walletState.accounts) {
+            const addr = account.metadata?.evmAddress as string | undefined
+            if (addr) {
+              this.evmAddressMap.set(account.address, addr)
+            }
+          }
+          evmAddress = this.evmAddressMap.get(algorandAddress)
+        }
+      }
 
       if (!evmAddress) {
         throw new Error(`No EVM address found for Algorand address: ${algorandAddress}`)
@@ -325,7 +348,8 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
    */
   protected async resumeWithAccounts(
     evmAddresses: string[],
-    setAccountsFn: (accounts: WalletAccount[]) => void
+    setAccountsFn: (accounts: WalletAccount[]) => void,
+    connectorInfo?: { name?: string; icon?: string }
   ): Promise<void> {
     const state = this.store.state
     const walletState = state.wallets[this.id]
@@ -343,7 +367,7 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       }
     }
 
-    const walletAccounts = await this.deriveAlgorandAccounts(evmAddresses)
+    const walletAccounts = await this.deriveAlgorandAccounts(evmAddresses, connectorInfo)
     const match = compareAccounts(walletAccounts, walletState.accounts)
 
     if (!match) {
