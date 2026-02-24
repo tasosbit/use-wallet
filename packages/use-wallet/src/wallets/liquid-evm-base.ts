@@ -1,11 +1,16 @@
-import algosdk from 'algosdk'
-import { compareAccounts, flattenTxnGroup, isSignedTxn, isTransactionArray } from 'src/utils'
-import { BaseWallet } from 'src/wallets/base'
-import type { Store } from '@tanstack/store'
-import type { LiquidEvmMetadata, WalletAccount, WalletConstructor } from 'src/wallets/types'
 import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
+import type { Store } from '@tanstack/store'
+import algosdk from 'algosdk'
 import type { LiquidEvmSdk, SignTypedDataParams } from 'liquid-accounts-evm'
 import type { State } from 'src/store'
+import { compareAccounts, flattenTxnGroup, isSignedTxn, isTransactionArray } from 'src/utils'
+import { BaseWallet } from 'src/wallets/base'
+import type {
+  LiquidEvmMetadata,
+  SignerTransaction,
+  WalletAccount,
+  WalletConstructor
+} from 'src/wallets/types'
 
 interface EvmAccount {
   evmAddress: string
@@ -81,7 +86,10 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
    * @param evmAddress - The EVM address to sign with
    * @returns The signature as a hex string (with 0x prefix)
    */
-  protected abstract signWithProvider(typedData: SignTypedDataParams, evmAddress: string): Promise<string>
+  protected abstract signWithProvider(
+    typedData: SignTypedDataParams,
+    evmAddress: string
+  ): Promise<string>
 
   /**
    * Ensure the wallet is on the Algorand chain (4160).
@@ -97,7 +105,9 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       return
     }
 
-    this.logger.info(`Wrong chain (${currentChainId}), switching to Algorand (${ALGORAND_CHAIN_ID_HEX})...`)
+    this.logger.info(
+      `Wrong chain (${currentChainId}), switching to Algorand (${ALGORAND_CHAIN_ID_HEX})...`
+    )
 
     try {
       await provider.request({
@@ -176,14 +186,11 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
     )
   }
 
-  /**
-   * Process transaction group to extract transactions that need signing
-   */
-  protected processTxns(
+  private processTxns(
     txnGroup: algosdk.Transaction[],
     indexesToSign?: number[]
-  ): algosdk.Transaction[] {
-    const txnsToSign: algosdk.Transaction[] = []
+  ): SignerTransaction[] {
+    const txnsToSign: SignerTransaction[] = []
 
     txnGroup.forEach((txn, index) => {
       const isIndexMatch = !indexesToSign || indexesToSign.includes(index)
@@ -191,21 +198,20 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       const canSignTxn = this.addresses.includes(signer)
 
       if (isIndexMatch && canSignTxn) {
-        txnsToSign.push(txn)
+        txnsToSign.push({ txn })
+      } else {
+        txnsToSign.push({ txn, signers: [] })
       }
     })
 
     return txnsToSign
   }
 
-  /**
-   * Process encoded transaction group to extract transactions that need signing
-   */
-  protected processEncodedTxns(
+  private processEncodedTxns(
     txnGroup: Uint8Array[],
     indexesToSign?: number[]
-  ): algosdk.Transaction[] {
-    const txnsToSign: algosdk.Transaction[] = []
+  ): SignerTransaction[] {
+    const txnsToSign: SignerTransaction[] = []
 
     txnGroup.forEach((txnBuffer, index) => {
       const decodedObj = algosdk.msgpackRawDecode(txnBuffer)
@@ -220,7 +226,9 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       const canSignTxn = !isSigned && this.addresses.includes(signer)
 
       if (isIndexMatch && canSignTxn) {
-        txnsToSign.push(txn)
+        txnsToSign.push({ txn })
+      } else {
+        txnsToSign.push({ txn, signers: [] })
       }
     })
 
@@ -237,34 +245,21 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
     try {
       this.logger.debug('Signing transactions...', { txnGroup, indexesToSign })
 
-      const evmSdk = await this.initializeEvmSdk()
-      let flatTxns: algosdk.Transaction[] = []
+      const liquidEvmSdk = await this.initializeEvmSdk()
+      let txnsToSign: SignerTransaction[] = []
 
+      // Determine type and process transactions for signing
       if (isTransactionArray(txnGroup)) {
-        flatTxns = flattenTxnGroup(txnGroup)
+        const flatTxns: algosdk.Transaction[] = flattenTxnGroup(txnGroup)
+        txnsToSign = this.processTxns(flatTxns, indexesToSign)
       } else {
-        const flatEncoded: Uint8Array[] = flattenTxnGroup(txnGroup as Uint8Array[])
-        flatTxns = flatEncoded.map((txnBuffer) => {
-          const decodedObj = algosdk.msgpackRawDecode(txnBuffer)
-          const isSigned = isSignedTxn(decodedObj)
-          return isSigned
-            ? algosdk.decodeSignedTransaction(txnBuffer).txn
-            : algosdk.decodeUnsignedTransaction(txnBuffer)
-        })
+        const flatTxns: Uint8Array[] = flattenTxnGroup(txnGroup as Uint8Array[])
+        txnsToSign = this.processEncodedTxns(flatTxns, indexesToSign)
       }
 
-      const txnsToSign = isTransactionArray(txnGroup)
-        ? this.processTxns(flatTxns, indexesToSign)
-        : this.processEncodedTxns(flattenTxnGroup(txnGroup as Uint8Array[]), indexesToSign)
-
-      if (txnsToSign.length === 0) {
-        this.logger.debug('No transactions to sign')
-        return flatTxns.map(() => null)
-      }
-
-      // Get the EVM address (all txns should be from the same wallet account)
+      // TODO get evm signers properly
       const firstTxn = txnsToSign[0]
-      const algorandAddress = firstTxn.sender.toString()
+      const algorandAddress = firstTxn.txn.sender.toString()
       const evmAddress = this.evmAddressMap.get(algorandAddress)
 
       if (!evmAddress) {
@@ -274,18 +269,29 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       const onBeforeSign = this.options.uiHooks?.onBeforeSign ?? this.managerUIHooks?.onBeforeSign
       if (onBeforeSign) {
         this.logger.debug('Running onBeforeSign hook', { txnGroup, indexesToSign })
-        await onBeforeSign(txnGroup as algosdk.Transaction[] | Uint8Array[], indexesToSign)
+        const txnsAsUint8 = txnsToSign.map(({ txn }) => algosdk.encodeUnsignedTransaction(txn))
+        // important to pass the txns as Uint8Array to avoid package hazard issues. decode on the other end
+        await onBeforeSign(txnsAsUint8, indexesToSign)
       }
 
       // Ensure we're on the Algorand chain before requesting signatures
       await this.ensureAlgorandChain()
 
-      // Sign all transactions in one call to avoid multiple wallet prompts
-      const signedBlobs = await evmSdk.signTxn({
+      // Get a TransactionSigner for this EVM address
+      const { signer: evmSigner } = await liquidEvmSdk.getSigner({
         evmAddress,
-        txns: flatTxns,
         signMessage: (typedData) => this.signWithProvider(typedData, evmAddress)
       })
+
+      // Determine which indexes to sign (entries without signers: [] should be signed)
+      const allTxns = txnsToSign.map((t) => t.txn)
+      const signIndexes = txnsToSign.reduce<number[]>((acc, t, i) => {
+        if (!('signers' in t)) acc.push(i)
+        return acc
+      }, [])
+
+      // Sign all transactions in one call to avoid multiple wallet prompts
+      const signedBlobs = await evmSigner(allTxns, signIndexes)
 
       const onAfterSign = this.options.uiHooks?.onAfterSign ?? this.managerUIHooks?.onAfterSign
       if (onAfterSign) {
@@ -295,14 +301,11 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
         } catch (e) {}
       }
 
-      // Build result array - use signed txns where we should sign, null otherwise
-      const result: (Uint8Array | null)[] = flatTxns.map((txn, index) => {
-        const isIndexMatch = !indexesToSign || indexesToSign.includes(index)
-        const signer = txn.sender.toString()
-        const canSignTxn = this.addresses.includes(signer)
-
-        if (isIndexMatch && canSignTxn) {
-          return signedBlobs[index]
+      // Map signed blobs back to full array with nulls for unsigned txns
+      let signedIdx = 0
+      const result: (Uint8Array | null)[] = txnsToSign.map((_, index) => {
+        if (signIndexes.includes(index)) {
+          return signedBlobs[signedIdx++]
         }
         return null
       })
