@@ -2,7 +2,11 @@ import { WalletState, addWallet, setAccounts } from 'src/store'
 import { LiquidEvmBaseWallet, LiquidEvmOptions } from 'src/wallets/liquid-evm-base'
 import { WalletId } from 'src/wallets/types'
 import type { WalletAccount, WalletConstructor } from 'src/wallets/types'
-import type { SignTypedDataParams } from 'liquid-accounts-evm'
+import {
+  ALGORAND_CHAIN_ID,
+  ALGORAND_EVM_CHAIN_CONFIG,
+  type SignTypedDataParams,
+} from 'liquid-accounts-evm'
 import type { Config as WagmiConfig } from '@wagmi/core'
 
 export interface RainbowKitWalletOptions extends LiquidEvmOptions {
@@ -34,6 +38,7 @@ const ICON = `data:image/svg+xml;base64,${btoa(`
 
 export class RainbowKitWallet extends LiquidEvmBaseWallet {
   protected options: RainbowKitWalletOptions
+  private _connecting = false
 
   constructor(params: WalletConstructor<WalletId.RAINBOWKIT>) {
     super(params)
@@ -42,6 +47,10 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
     if (!this.options.wagmiConfig) {
       throw new Error('RainbowKitWallet requires wagmiConfig in options')
     }
+
+    // Ensure chain 4160 is always registered in the wagmi config so that
+    // switchChain and signTypedData work without raw provider workarounds.
+    this.ensureChainRegistered()
   }
 
   static defaultMetadata = {
@@ -50,8 +59,57 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
     isLiquid: 'EVM' as const
   }
 
+  /** True while connect() is running. Prevents re-entrancy from bridge components. */
+  public get isConnecting(): boolean {
+    return this._connecting
+  }
+
+  /**
+   * Set the getEvmAccounts callback after construction.
+   *
+   * RainbowKit's connect modal can only be opened via React hooks (useConnectModal)
+   * rendered inside <RainbowKitProvider>, but WalletManager is constructed before
+   * any React tree renders. This method lets WalletUIProvider create the bridge
+   * callback internally and inject it into the wallet on mount — before any
+   * user-initiated connect() call.
+   */
+  public setGetEvmAccounts(fn: () => Promise<string[]>): void {
+    this.options.getEvmAccounts = fn
+  }
+
   private get wagmiConfig(): WagmiConfig {
     return this.options.wagmiConfig
+  }
+
+  /**
+   * If the Algorand chain (4160) isn't already in the wagmi config, add it.
+   * This is needed so wagmi's switchChain and signTypedData work without
+   * falling back to raw provider calls.
+   */
+  private ensureChainRegistered(): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chains = this.wagmiConfig.chains as any as Array<{ id: number; [key: string]: any }>
+    if (chains.some((c) => c.id === ALGORAND_CHAIN_ID)) {
+      this.logger.debug(`Algorand chain (${ALGORAND_CHAIN_ID}) already in wagmi config:`, chains.map((c) => c.id))
+      return
+    }
+
+    this.logger.info(`Registering Algorand chain (${ALGORAND_CHAIN_ID}) in wagmi config`)
+    chains.push({
+      id: ALGORAND_CHAIN_ID,
+      name: ALGORAND_EVM_CHAIN_CONFIG.chainName,
+      nativeCurrency: ALGORAND_EVM_CHAIN_CONFIG.nativeCurrency,
+      rpcUrls: {
+        default: { http: ALGORAND_EVM_CHAIN_CONFIG.rpcUrls },
+      },
+      blockExplorers: {
+        default: {
+          name: 'Allo',
+          url: ALGORAND_EVM_CHAIN_CONFIG.blockExplorerUrls[0],
+        },
+      },
+    })
+    this.logger.debug('wagmi config chains after registration:', chains.map((c) => c.id))
   }
 
   protected async initializeProvider(): Promise<void> {
@@ -59,44 +117,94 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
     this.logger.info('Using wagmi for EVM provider management')
   }
 
+  /**
+   * Get the raw EIP-1193 provider from the active wagmi connector.
+   * Used by the base class's ensureAlgorandChain fallback and for getEvmProvider.
+   */
+  private async getRawProvider(): Promise<any> {
+    const { getAccount } = await import('@wagmi/core')
+    const account = getAccount(this.wagmiConfig)
+    if (!account.connector) throw new Error('No EVM wallet connector available')
+    return account.connector.getProvider()
+  }
+
   public async getEvmProvider(): Promise<any> {
-    const { getConnectorClient } = await import('@wagmi/core')
-    return getConnectorClient(this.wagmiConfig)
+    return this.getRawProvider()
   }
 
-  protected async signWithProvider(typedData: SignTypedDataParams, evmAddress: string): Promise<string> {
-    const { signTypedData } = await import('@wagmi/core')
-
-    // wagmi auto-derives EIP712Domain from the domain parameter, so strip it
-    const { EIP712Domain, ...types } = typedData.types
-
-    return signTypedData(this.wagmiConfig, {
-      domain: typedData.domain as any,
-      types,
-      primaryType: typedData.primaryType,
-      message: typedData.message,
-      account: evmAddress as `0x${string}`
-    })
-  }
-
+  /**
+   * Switch the wallet to the Algorand chain (4160).
+   * Since the chain is always registered in the wagmi config (ensureChainRegistered),
+   * we use wagmi's switchChain which goes through the connector properly.
+   * Falls back to wallet_addEthereumChain for wallets that don't know about the chain yet.
+   */
   protected override async ensureAlgorandChain(): Promise<void> {
     const { getAccount, switchChain } = await import('@wagmi/core')
-    const { ALGORAND_CHAIN_ID } = await import('liquid-accounts-evm')
 
     const account = getAccount(this.wagmiConfig)
     if (account.chainId === ALGORAND_CHAIN_ID) {
       return
     }
 
-    this.logger.info(`Wrong chain (${account.chainId}), switching to Algorand (${ALGORAND_CHAIN_ID})...`)
+    this.logger.info(`ensureAlgorandChain: switching from chain ${account.chainId} to ${ALGORAND_CHAIN_ID}...`)
 
     try {
+      // Chain is always in the wagmi config (ensureChainRegistered), so switchChain
+      // goes through the connector properly.
       await switchChain(this.wagmiConfig, { chainId: ALGORAND_CHAIN_ID })
+      this.logger.info('ensureAlgorandChain: chain switch succeeded')
     } catch (error: any) {
-      // EIP-712 signing is chain-agnostic (chain ID is embedded in the domain),
-      // so we can continue even if switching fails.
-      this.logger.warn('Chain switch failed, continuing with signing:', error.message)
+      // switchChain failed — the wallet may not know about the chain yet.
+      // Try adding it via wallet_addEthereumChain (EIP-3085), which adds AND switches.
+      this.logger.info('ensureAlgorandChain: switchChain failed, trying wallet_addEthereumChain...', error.message)
+      const { ALGORAND_CHAIN_ID_HEX } = await import('liquid-accounts-evm')
+      const provider = await this.getRawProvider()
+
+      try {
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [ALGORAND_EVM_CHAIN_CONFIG]
+        })
+
+        // Verify the wallet actually switched (not all wallets auto-switch after adding)
+        const currentChainId = (await provider.request({ method: 'eth_chainId' })) as string
+        if (currentChainId.toLowerCase() !== ALGORAND_CHAIN_ID_HEX.toLowerCase()) {
+          this.logger.info('ensureAlgorandChain: chain added but not switched, switching now...')
+          await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: ALGORAND_CHAIN_ID_HEX }]
+          })
+        }
+        this.logger.info('ensureAlgorandChain: on Algorand chain')
+      } catch (addError: any) {
+        // EIP-712 signing is chain-agnostic — continue even if switching fails.
+        this.logger.warn('ensureAlgorandChain: failed to add/switch chain, continuing:', addError.message)
+      }
     }
+  }
+
+  /**
+   * Sign EIP-712 typed data using wagmi's signTypedData.
+   *
+   * wagmi's signTypedData does NOT validate the domain's chainId against the
+   * connected chain — it simply forwards the typed data to the wallet via viem.
+   * EIP-712 signing is chain-agnostic (the chain ID is in the typed data domain,
+   * not in the RPC method), so this works regardless of which chain the wallet
+   * reports being on.
+   */
+  protected async signWithProvider(typedData: SignTypedDataParams, evmAddress: string): Promise<string> {
+    const { signTypedData } = await import('@wagmi/core')
+
+    // Cast to `any` to bypass viem's deep TypedData generic inference which
+    // rejects our custom EIP-712 types at the type level (runtime is fine).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return signTypedData(this.wagmiConfig, {
+      account: evmAddress as `0x${string}`,
+      domain: typedData.domain as any,
+      types: typedData.types as any,
+      primaryType: typedData.primaryType,
+      message: typedData.message as any,
+    })
   }
 
   /**
@@ -118,26 +226,19 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
    * If not connected, tries the getEvmAccounts callback, then falls back to
    * connecting with the first available connector.
    *
-   * Also returns connector metadata (name/icon) for the underlying wallet.
+   * When getEvmAccounts is provided, it is always called (to show the wallet
+   * selection UI). The callback is responsible for any disconnect/reconnect
+   * needed to present a fresh selection.
    */
   private async getConnectedEvmAddresses(): Promise<{ addresses: string[]; connectorInfo: { name?: string; icon?: string } }> {
     const { getAccount, connect: wagmiConnect } = await import('@wagmi/core')
 
-    let account = getAccount(this.wagmiConfig)
-
-    if (account.isConnected && account.address) {
-      return {
-        addresses: account.addresses ? [...account.addresses] : [account.address],
-        connectorInfo: RainbowKitWallet.extractConnectorInfo(account)
-      }
-    }
-
-    // Try app-provided callback (e.g. opens RainbowKit modal)
+    // If getEvmAccounts is provided, always call it — this is the "show me
+    // a wallet picker" path.  The callback handles disconnect if needed.
     if (this.options.getEvmAccounts) {
       const addresses = await this.options.getEvmAccounts()
       if (addresses.length > 0) {
-        // Re-read state after callback
-        account = getAccount(this.wagmiConfig)
+        const account = getAccount(this.wagmiConfig)
         const connectorInfo = RainbowKitWallet.extractConnectorInfo(account)
         if (account.isConnected && account.address) {
           return {
@@ -145,8 +246,16 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
             connectorInfo
           }
         }
-        // If callback returned addresses directly but wagmi isn't synced yet
         return { addresses, connectorInfo }
+      }
+    }
+
+    // No callback — check wagmi state directly
+    const account = getAccount(this.wagmiConfig)
+    if (account.isConnected && account.address) {
+      return {
+        addresses: account.addresses ? [...account.addresses] : [account.address],
+        connectorInfo: RainbowKitWallet.extractConnectorInfo(account)
       }
     }
 
@@ -156,10 +265,10 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
       this.logger.info('Attempting connection with first available connector...')
       try {
         const result = await wagmiConnect(this.wagmiConfig, { connector: connectors[0] })
-        account = getAccount(this.wagmiConfig)
+        const updatedAccount = getAccount(this.wagmiConfig)
         return {
           addresses: [...result.accounts],
-          connectorInfo: RainbowKitWallet.extractConnectorInfo(account)
+          connectorInfo: RainbowKitWallet.extractConnectorInfo(updatedAccount)
         }
       } catch (error: any) {
         this.logger.warn('Auto-connect failed:', error.message)
@@ -185,33 +294,43 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
   }
 
   public connect = async (): Promise<WalletAccount[]> => {
-    this.logger.info('Connecting...')
-
-    await this.initializeEvmSdk()
-
-    const { addresses: evmAddresses, connectorInfo } = await this.getConnectedEvmAddresses()
-    this.logger.info(`Connected to ${evmAddresses.length} EVM account(s)`)
-
-    // Update wallet-level metadata with actual connector name/icon before
-    // deriving accounts (so account names reflect the real wallet).
-    this.applyConnectorMetadata(connectorInfo)
-
-    const walletAccounts = await this.deriveAlgorandAccounts(evmAddresses, connectorInfo)
-    const activeAccount = walletAccounts[0]
-
-    const walletState: WalletState = {
-      accounts: walletAccounts,
-      activeAccount
+    // Re-entrancy guard — prevents EvmWalletBridge's onConnect from
+    // triggering a second connect() while the first is still running.
+    if (this._connecting) {
+      this.logger.info('connect() already in progress, ignoring duplicate call')
+      return []
     }
+    this._connecting = true
 
-    addWallet(this.store, {
-      walletId: this.id,
-      wallet: walletState
-    })
+    try {
+      this.logger.info('Connecting...')
 
-    this.logger.info('Connected.', walletState)
-    this.notifyConnect(evmAddresses[0], activeAccount.address)
-    return walletAccounts
+      await this.initializeEvmSdk()
+
+      const { addresses: evmAddresses, connectorInfo } = await this.getConnectedEvmAddresses()
+      this.logger.info(`Connected to ${evmAddresses.length} EVM account(s)`)
+
+      this.applyConnectorMetadata(connectorInfo)
+
+      const walletAccounts = await this.deriveAlgorandAccounts(evmAddresses, connectorInfo)
+      const activeAccount = walletAccounts[0]
+
+      const walletState: WalletState = {
+        accounts: walletAccounts,
+        activeAccount
+      }
+
+      addWallet(this.store, {
+        walletId: this.id,
+        wallet: walletState
+      })
+
+      this.logger.info('Connected.', walletState)
+      this.notifyConnect(evmAddresses[0], activeAccount.address)
+      return walletAccounts
+    } finally {
+      this._connecting = false
+    }
   }
 
   public disconnect = async (): Promise<void> => {
@@ -225,7 +344,6 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
     }
 
     this.evmAddressMap.clear()
-    // Reset metadata to defaults so stale connector info isn't shown
     this.updateMetadata(RainbowKitWallet.defaultMetadata)
     this.onDisconnect()
 

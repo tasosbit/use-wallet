@@ -88,31 +88,61 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
    * Queries the current chain first, and only switches/adds if needed.
    */
   protected async ensureAlgorandChain(): Promise<void> {
-    const provider = await this.getEvmProvider()
+    this.logger.debug('ensureAlgorandChain: starting chain check')
+
+    let provider: any
+    try {
+      provider = await this.getEvmProvider()
+      this.logger.debug('ensureAlgorandChain: provider acquired', { provider: typeof provider })
+    } catch (err: any) {
+      this.logger.error('ensureAlgorandChain: failed to get EVM provider:', err.message)
+      throw err
+    }
+
     const { ALGORAND_CHAIN_ID_HEX, ALGORAND_EVM_CHAIN_CONFIG } = await import('liquid-accounts-evm')
 
-    const currentChainId = (await provider.request({ method: 'eth_chainId' })) as string
+    let currentChainId: string
+    try {
+      currentChainId = (await provider.request({ method: 'eth_chainId' })) as string
+      this.logger.debug(`ensureAlgorandChain: current chain = ${currentChainId}, target = ${ALGORAND_CHAIN_ID_HEX}`)
+    } catch (err: any) {
+      this.logger.error('ensureAlgorandChain: eth_chainId request failed:', err.message)
+      throw err
+    }
 
-    if (currentChainId === ALGORAND_CHAIN_ID_HEX) {
+    if (currentChainId.toLowerCase() === ALGORAND_CHAIN_ID_HEX.toLowerCase()) {
+      this.logger.debug('ensureAlgorandChain: already on Algorand chain, no switch needed')
       return
     }
 
-    this.logger.info(`Wrong chain (${currentChainId}), switching to Algorand (${ALGORAND_CHAIN_ID_HEX})...`)
+    this.logger.info(`ensureAlgorandChain: wrong chain (${currentChainId}), switching to Algorand (${ALGORAND_CHAIN_ID_HEX})...`)
 
     try {
       await provider.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: ALGORAND_CHAIN_ID_HEX }]
       })
+      this.logger.info('ensureAlgorandChain: chain switch succeeded')
     } catch (switchError: any) {
-      // 4902 = chain not added to wallet
-      if (switchError.code === 4902) {
-        this.logger.info('Algorand chain not found, adding it...')
-        await provider.request({
-          method: 'wallet_addEthereumChain',
-          params: [ALGORAND_EVM_CHAIN_CONFIG]
-        })
+      this.logger.debug(`ensureAlgorandChain: switch failed with code=${switchError.code}, message=${switchError.message}`)
+      // 4902  = chain not added (MetaMask / standard EIP-3085)
+      // -32600 = "Chain Id not supported" (Rainbow and other wallets)
+      // -32603 = internal JSON-RPC error (some wallets use this for unknown chains)
+      const chainUnknown = [4902, -32600, -32603].includes(switchError.code)
+      if (chainUnknown) {
+        this.logger.info('ensureAlgorandChain: chain not found, adding Algorand chain...')
+        try {
+          await provider.request({
+            method: 'wallet_addEthereumChain',
+            params: [ALGORAND_EVM_CHAIN_CONFIG]
+          })
+          this.logger.info('ensureAlgorandChain: chain added successfully')
+        } catch (addError: any) {
+          this.logger.error('ensureAlgorandChain: wallet_addEthereumChain failed:', addError.message)
+          throw addError
+        }
       } else {
+        this.logger.error('ensureAlgorandChain: wallet_switchEthereumChain failed:', switchError.message)
         throw switchError
       }
     }
