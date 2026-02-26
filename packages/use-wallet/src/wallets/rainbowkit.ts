@@ -4,7 +4,7 @@ import { WalletId } from 'src/wallets/types'
 import type { WalletAccount, WalletConstructor } from 'src/wallets/types'
 import {
   ALGORAND_CHAIN_ID,
-  ALGORAND_EVM_CHAIN_CONFIG,
+  algorandChain,
   type SignTypedDataParams,
 } from 'liquid-accounts-evm'
 import type { Config as WagmiConfig } from '@wagmi/core'
@@ -90,26 +90,11 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chains = this.wagmiConfig.chains as any as Array<{ id: number; [key: string]: any }>
     if (chains.some((c) => c.id === ALGORAND_CHAIN_ID)) {
-      this.logger.debug(`Algorand chain (${ALGORAND_CHAIN_ID}) already in wagmi config:`, chains.map((c) => c.id))
       return
     }
 
     this.logger.info(`Registering Algorand chain (${ALGORAND_CHAIN_ID}) in wagmi config`)
-    chains.push({
-      id: ALGORAND_CHAIN_ID,
-      name: ALGORAND_EVM_CHAIN_CONFIG.chainName,
-      nativeCurrency: ALGORAND_EVM_CHAIN_CONFIG.nativeCurrency,
-      rpcUrls: {
-        default: { http: ALGORAND_EVM_CHAIN_CONFIG.rpcUrls },
-      },
-      blockExplorers: {
-        default: {
-          name: 'Allo',
-          url: ALGORAND_EVM_CHAIN_CONFIG.blockExplorerUrls[0],
-        },
-      },
-    })
-    this.logger.debug('wagmi config chains after registration:', chains.map((c) => c.id))
+    chains.push(algorandChain)
   }
 
   protected async initializeProvider(): Promise<void> {
@@ -119,7 +104,7 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
 
   /**
    * Get the raw EIP-1193 provider from the active wagmi connector.
-   * Used by the base class's ensureAlgorandChain fallback and for getEvmProvider.
+   * Used by the base class's getEvmProvider and ensureAlgorandChain.
    */
   private async getRawProvider(): Promise<any> {
     const { getAccount } = await import('@wagmi/core')
@@ -130,57 +115,6 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
 
   public async getEvmProvider(): Promise<any> {
     return this.getRawProvider()
-  }
-
-  /**
-   * Switch the wallet to the Algorand chain (4160).
-   * Since the chain is always registered in the wagmi config (ensureChainRegistered),
-   * we use wagmi's switchChain which goes through the connector properly.
-   * Falls back to wallet_addEthereumChain for wallets that don't know about the chain yet.
-   */
-  protected override async ensureAlgorandChain(): Promise<void> {
-    const { getAccount, switchChain } = await import('@wagmi/core')
-
-    const account = getAccount(this.wagmiConfig)
-    if (account.chainId === ALGORAND_CHAIN_ID) {
-      return
-    }
-
-    this.logger.info(`ensureAlgorandChain: switching from chain ${account.chainId} to ${ALGORAND_CHAIN_ID}...`)
-
-    try {
-      // Chain is always in the wagmi config (ensureChainRegistered), so switchChain
-      // goes through the connector properly.
-      await switchChain(this.wagmiConfig, { chainId: ALGORAND_CHAIN_ID })
-      this.logger.info('ensureAlgorandChain: chain switch succeeded')
-    } catch (error: any) {
-      // switchChain failed — the wallet may not know about the chain yet.
-      // Try adding it via wallet_addEthereumChain (EIP-3085), which adds AND switches.
-      this.logger.info('ensureAlgorandChain: switchChain failed, trying wallet_addEthereumChain...', error.message)
-      const { ALGORAND_CHAIN_ID_HEX } = await import('liquid-accounts-evm')
-      const provider = await this.getRawProvider()
-
-      try {
-        await provider.request({
-          method: 'wallet_addEthereumChain',
-          params: [ALGORAND_EVM_CHAIN_CONFIG]
-        })
-
-        // Verify the wallet actually switched (not all wallets auto-switch after adding)
-        const currentChainId = (await provider.request({ method: 'eth_chainId' })) as string
-        if (currentChainId.toLowerCase() !== ALGORAND_CHAIN_ID_HEX.toLowerCase()) {
-          this.logger.info('ensureAlgorandChain: chain added but not switched, switching now...')
-          await provider.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: ALGORAND_CHAIN_ID_HEX }]
-          })
-        }
-        this.logger.info('ensureAlgorandChain: on Algorand chain')
-      } catch (addError: any) {
-        // EIP-712 signing is chain-agnostic — continue even if switching fails.
-        this.logger.warn('ensureAlgorandChain: failed to add/switch chain, continuing:', addError.message)
-      }
-    }
   }
 
   /**
@@ -195,15 +129,17 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
   protected async signWithProvider(typedData: SignTypedDataParams, evmAddress: string): Promise<string> {
     const { signTypedData } = await import('@wagmi/core')
 
-    // Cast to `any` to bypass viem's deep TypedData generic inference which
-    // rejects our custom EIP-712 types at the type level (runtime is fine).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // Omit EIP712Domain from types — viem infers it from the domain object.
+    // Passing it explicitly causes viem to map uint256→bigint for chainId,
+    // conflicting with our number-typed domain.
+    const { EIP712Domain: _, ...types } = typedData.types
+
     return signTypedData(this.wagmiConfig, {
       account: evmAddress as `0x${string}`,
-      domain: typedData.domain as any,
-      types: typedData.types as any,
+      domain: typedData.domain,
+      types,
       primaryType: typedData.primaryType,
-      message: typedData.message as any,
+      message: typedData.message,
     })
   }
 
@@ -351,50 +287,64 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
   }
 
   public resumeSession = async (): Promise<void> => {
-    try {
-      const state = this.store.state
-      const walletState = state.wallets[this.id]
+    const state = this.store.state
+    const walletState = state.wallets[this.id]
 
-      if (!walletState) {
-        this.logger.info('No session to resume')
+    if (!walletState) {
+      return
+    }
+
+    this.logger.info('Resuming session...')
+    await this.initializeEvmSdk()
+
+    const { getAccount, reconnect } = await import('@wagmi/core')
+
+    try {
+      await reconnect(this.wagmiConfig)
+    } catch (err: any) {
+      this.logger.warn('wagmi reconnect error (may be expected):', err.message)
+    }
+
+    const account = getAccount(this.wagmiConfig)
+
+    let evmAddresses: string[]
+    let connectorInfo: { name?: string; icon?: string }
+
+    if (account.isConnected && account.address) {
+      // Live wagmi state available
+      evmAddresses = account.addresses ? [...account.addresses] : [account.address]
+      connectorInfo = RainbowKitWallet.extractConnectorInfo(account)
+    } else {
+      // Wagmi not connected yet — resume from persisted EVM addresses.
+      // RainbowKitBridge will call resumeSession() again once wagmi reconnects.
+      this.logger.warn('EVM wallet not yet connected, resuming from persisted state')
+      evmAddresses = walletState.accounts
+        .map((a) => a.metadata?.evmAddress as string)
+        .filter(Boolean)
+
+      if (evmAddresses.length === 0) {
+        this.logger.warn('No persisted EVM addresses, cannot resume')
+        this.onDisconnect()
         return
       }
-
-      this.logger.info('Resuming session...')
-
-      await this.initializeEvmSdk()
-
-      const { getAccount } = await import('@wagmi/core')
-      const account = getAccount(this.wagmiConfig)
-
-      if (!account.isConnected || !account.address) {
-        this.logger.warn('No EVM account connected, cannot resume')
-        throw new Error('No EVM wallet connected')
-      }
-
-      // Restore connector metadata from wagmi state (or fall back to persisted account metadata)
-      const connectorInfo = RainbowKitWallet.extractConnectorInfo(account)
-      if (!connectorInfo.name && walletState.accounts.length > 0) {
-        const first = walletState.accounts[0]
-        const persistedName = first.metadata?.connectorName as string | undefined
-        const persistedIcon = first.metadata?.connectorIcon as string | undefined
-        if (persistedName) connectorInfo.name = persistedName
-        if (persistedIcon) connectorInfo.icon = persistedIcon
-      }
-      this.applyConnectorMetadata(connectorInfo)
-
-      const evmAddresses = account.addresses ? [...account.addresses] : [account.address]
-
-      await this.resumeWithAccounts(evmAddresses, (accounts) => {
-        setAccounts(this.store, {
-          walletId: this.id,
-          accounts
-        })
-      }, connectorInfo)
-    } catch (error: any) {
-      this.logger.error('Error resuming session:', error.message)
-      this.onDisconnect()
-      throw error
+      connectorInfo = {}
     }
+
+    // Fall back to persisted connector metadata if live metadata unavailable
+    if (!connectorInfo.name && walletState.accounts.length > 0) {
+      const first = walletState.accounts[0]
+      const persistedName = first.metadata?.connectorName as string | undefined
+      const persistedIcon = first.metadata?.connectorIcon as string | undefined
+      if (persistedName) connectorInfo.name = persistedName
+      if (persistedIcon) connectorInfo.icon = persistedIcon
+    }
+    this.applyConnectorMetadata(connectorInfo)
+
+    await this.resumeWithAccounts(evmAddresses, (accounts) => {
+      setAccounts(this.store, {
+        walletId: this.id,
+        accounts
+      })
+    }, connectorInfo)
   }
 }
