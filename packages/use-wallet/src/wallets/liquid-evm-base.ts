@@ -366,8 +366,11 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
         prev: walletState.accounts,
         current: walletAccounts
       })
-      setAccountsFn(walletAccounts)
     }
+
+    // Always update accounts so that fresh connector metadata (name, icon) propagates
+    // to the reactive store even when addresses haven't changed.
+    setAccountsFn(walletAccounts)
 
     this.logger.info('Session resumed')
   }
