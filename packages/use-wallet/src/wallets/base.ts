@@ -155,6 +155,14 @@ export abstract class BaseWallet {
 
   // ---------- Protected Methods ------------------------------------- //
 
+  /**
+   * Dynamically update wallet metadata (e.g., after learning the actual
+   * connector name/icon during connect).
+   */
+  protected updateMetadata(updates: Partial<WalletMetadata>): void {
+    ;(this as { metadata: WalletMetadata }).metadata = { ...this.metadata, ...updates }
+  }
+
   protected onDisconnect = (): void => {
     this.logger.debug(`Removing wallet from store...`)
     removeWallet(this.store, { walletId: this.walletKey })

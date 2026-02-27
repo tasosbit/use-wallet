@@ -9,10 +9,9 @@ import { KibisisWallet } from './wallets/kibisis'
 import { KmdWallet } from './wallets/kmd'
 import { LuteWallet } from './wallets/lute'
 import { MagicAuth } from './wallets/magic'
-import { MetaMaskWallet } from './wallets/metamask'
 import { MnemonicWallet } from './wallets/mnemonic'
 import { PeraWallet } from './wallets/pera'
-import { RainbowWallet } from './wallets/rainbow'
+import { RainbowKitWallet } from './wallets/rainbowkit'
 import { WalletConnect } from './wallets/walletconnect'
 import { Web3AuthWallet } from './wallets/web3auth'
 import { W3Wallet } from './wallets/w3wallet'
@@ -28,10 +27,9 @@ export function createWalletMap(): WalletMap {
     [WalletId.KMD]: KmdWallet,
     [WalletId.LUTE]: LuteWallet,
     [WalletId.MAGIC]: MagicAuth,
-    [WalletId.METAMASK]: MetaMaskWallet,
     [WalletId.MNEMONIC]: MnemonicWallet,
     [WalletId.PERA]: PeraWallet,
-    [WalletId.RAINBOW]: RainbowWallet,
+    [WalletId.RAINBOWKIT]: RainbowKitWallet,
     [WalletId.WALLETCONNECT]: WalletConnect,
     [WalletId.WEB3AUTH]: Web3AuthWallet,
     [WalletId.W3_WALLET]: W3Wallet

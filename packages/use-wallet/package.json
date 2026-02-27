@@ -1,6 +1,6 @@
 {
   "name": "@txnlab/use-wallet",
-  "version": "4.5.4",
+  "version": "4.5.6",
   "description": "TypeScript library for integrating Algorand wallets into decentralized applications",
   "author": "Doug Richar <drichar@gmail.com>",
   "license": "MIT",
@@ -32,8 +32,7 @@
     "algosdk",
     "algokit",
     "kmd",
-    "metamask",
-    "rainbow",
+    "rainbowkit",
     "web3auth"
   ],
   "files": [
@@ -48,10 +47,10 @@
     "@blockshake/defly-connect": "1.2.1",
     "@magic-ext/algorand": "24.4.2",
     "@magic-sdk/provider": "29.5.0",
-    "@metamask/sdk": "0.33.1",
     "@perawallet/connect": "1.4.1",
     "@rainbow-me/rainbowkit": "^2.2.0",
     "@types/node": "20.11.30",
+    "@wagmi/core": "^2.16.0",
     "@walletconnect/modal": "2.7.0",
     "@walletconnect/modal-core": "2.7.0",
     "@walletconnect/sign-client": "2.23.4",
@@ -75,8 +74,8 @@
     "@agoralabs-sh/avm-web-provider": "^1.7.0",
     "@algorandfoundation/algokit-utils": "^9.2.0",
     "@blockshake/defly-connect": "^1.2.1",
-    "@metamask/sdk": "^0.33.1",
     "@perawallet/connect": "^1.4.1",
+    "@wagmi/core": "^2.16.0",
     "@walletconnect/modal": "^2.7.0",
     "@walletconnect/sign-client": "^2.23.4",
     "@web3auth/base": "^9.0.0",
@@ -99,10 +98,10 @@
     "@blockshake/defly-connect": {
       "optional": true
     },
-    "@metamask/sdk": {
+    "@perawallet/connect": {
       "optional": true
     },
-    "@perawallet/connect": {
+    "@wagmi/core": {
       "optional": true
     },
     "@rainbow-me/rainbowkit": {

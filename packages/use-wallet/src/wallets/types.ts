@@ -6,10 +6,9 @@ import { KibisisWallet } from './kibisis'
 import { KmdWallet, type KmdOptions } from './kmd'
 import { LuteConnectOptions, LuteWallet } from './lute'
 import { MagicAuth, MagicAuthOptions } from './magic'
-import { MetaMaskWallet, type MetaMaskWalletOptions } from './metamask'
 import { MnemonicWallet, type MnemonicOptions } from './mnemonic'
 import { PeraWallet, type PeraWalletConnectOptions } from './pera'
-import { RainbowWallet, type RainbowWalletOptions } from './rainbow'
+import { RainbowKitWallet, type RainbowKitWalletOptions } from './rainbowkit'
 import { WalletConnect, type WalletConnectOptions } from './walletconnect'
 import { Web3AuthWallet, type Web3AuthOptions } from './web3auth'
 import { BiatecWallet } from './biatec'
@@ -28,10 +27,9 @@ export enum WalletId {
   KMD = 'kmd',
   LUTE = 'lute',
   MAGIC = 'magic',
-  METAMASK = 'metamask',
   MNEMONIC = 'mnemonic',
   PERA = 'pera',
-  RAINBOW = 'rainbow',
+  RAINBOWKIT = 'rainbowkit',
   WALLETCONNECT = 'walletconnect',
   WEB3AUTH = 'web3auth',
   W3_WALLET = 'w3-wallet'
@@ -76,10 +74,9 @@ export type WalletMap = {
   [WalletId.KMD]: typeof KmdWallet
   [WalletId.LUTE]: typeof LuteWallet
   [WalletId.MAGIC]: typeof MagicAuth
-  [WalletId.METAMASK]: typeof MetaMaskWallet
   [WalletId.MNEMONIC]: typeof MnemonicWallet
   [WalletId.PERA]: typeof PeraWallet
-  [WalletId.RAINBOW]: typeof RainbowWallet
+  [WalletId.RAINBOWKIT]: typeof RainbowKitWallet
   [WalletId.WALLETCONNECT]: typeof WalletConnect
   [WalletId.WEB3AUTH]: typeof Web3AuthWallet
   [WalletId.W3_WALLET]: typeof W3Wallet
@@ -95,10 +92,9 @@ export type WalletOptionsMap = {
   [WalletId.KMD]: KmdOptions
   [WalletId.LUTE]: LuteConnectOptions
   [WalletId.MAGIC]: MagicAuthOptions
-  [WalletId.METAMASK]: MetaMaskWalletOptions
   [WalletId.MNEMONIC]: MnemonicOptions
   [WalletId.PERA]: PeraWalletConnectOptions
-  [WalletId.RAINBOW]: RainbowWalletOptions
+  [WalletId.RAINBOWKIT]: RainbowKitWalletOptions
   [WalletId.WALLETCONNECT]: WalletConnectOptions
   [WalletId.WEB3AUTH]: Web3AuthOptions
   [WalletId.W3_WALLET]: Record<string, never>

@@ -6,4 +6,5 @@ type = "sdk"
 name = 'use-wallet'
 
 [project.run]
-build = { commands = ['pnpm run build:packages'], description = 'Build use-wallet' }
+build = { commands = ['env NODE_OPTIONS=--max-old-space-size=4096 pnpm run build:packages'], description = 'Build use-wallet' }
+build2 = { commands = ['env NODE_OPTIONS=--max-old-space-size=4096 pnpm run build:packages'], description = 'Build use-wallet' }

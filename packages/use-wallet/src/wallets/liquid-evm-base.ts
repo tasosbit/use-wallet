@@ -101,7 +101,7 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
 
     const currentChainId = (await provider.request({ method: 'eth_chainId' })) as string
 
-    if (currentChainId === ALGORAND_CHAIN_ID_HEX) {
+    if (currentChainId.toLowerCase() === ALGORAND_CHAIN_ID_HEX.toLowerCase()) {
       return
     }
 
@@ -115,8 +115,11 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
         params: [{ chainId: ALGORAND_CHAIN_ID_HEX }]
       })
     } catch (switchError: any) {
-      // 4902 = chain not added to wallet
-      if (switchError.code === 4902) {
+      // 4902  = chain not added (MetaMask / standard EIP-3085)
+      // -32600 = "Chain Id not supported" (Rainbow and other wallets)
+      // -32603 = internal JSON-RPC error (some wallets use this for unknown chains)
+      const chainUnknown = [4902, -32600, -32603].includes(switchError.code)
+      if (chainUnknown) {
         this.logger.info('Algorand chain not found, adding it...')
         await provider.request({
           method: 'wallet_addEthereumChain',
@@ -152,9 +155,14 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
   }
 
   /**
-   * Derive Algorand accounts from EVM addresses
+   * Derive Algorand accounts from EVM addresses.
+   * @param evmAddresses - EVM addresses to derive Algorand accounts from
+   * @param connectorInfo - Optional connector name/icon to include in account metadata
    */
-  protected async deriveAlgorandAccounts(evmAddresses: string[]): Promise<WalletAccount[]> {
+  protected async deriveAlgorandAccounts(
+    evmAddresses: string[],
+    connectorInfo?: { name?: string; icon?: string }
+  ): Promise<WalletAccount[]> {
     const liquidEvmSdk = await this.initializeEvmSdk()
     const walletAccounts: WalletAccount[] = []
 
@@ -164,10 +172,14 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
 
       this.evmAddressMap.set(algorandAddress, evmAddress)
 
+      const metadata: Record<string, unknown> = { evmAddress }
+      if (connectorInfo?.name) metadata.connectorName = connectorInfo.name
+      if (connectorInfo?.icon) metadata.connectorIcon = connectorInfo.icon
+
       walletAccounts.push({
         name: `${this.metadata.name} ${evmAddress}`,
         address: algorandAddress,
-        metadata: { evmAddress }
+        metadata
       })
     }
 
@@ -175,18 +187,9 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
   }
 
   /**
-   * Convert bytes to hex string with 0x prefix
+   * Process transaction group to extract transactions that need signing
    */
-  protected bytesToHex(bytes: Uint8Array): string {
-    return (
-      '0x' +
-      Array.from(bytes)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('')
-    )
-  }
-
-  private processTxns(
+  protected processTxns(
     txnGroup: algosdk.Transaction[],
     indexesToSign?: number[]
   ): SignerTransaction[] {
@@ -260,7 +263,21 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       // TODO get evm signers properly
       const firstTxn = txnsToSign[0]
       const algorandAddress = firstTxn.txn.sender.toString()
-      const evmAddress = this.evmAddressMap.get(algorandAddress)
+      let evmAddress = this.evmAddressMap.get(algorandAddress)
+
+      // Fallback: rebuild evmAddressMap from persisted account metadata
+      if (!evmAddress) {
+        const walletState = this.store.state.wallets[this.id]
+        if (walletState) {
+          for (const account of walletState.accounts) {
+            const addr = account.metadata?.evmAddress as string | undefined
+            if (addr) {
+              this.evmAddressMap.set(account.address, addr)
+            }
+          }
+          evmAddress = this.evmAddressMap.get(algorandAddress)
+        }
+      }
 
       if (!evmAddress) {
         throw new Error(`No EVM address found for Algorand address: ${algorandAddress}`)
@@ -328,7 +345,8 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
    */
   protected async resumeWithAccounts(
     evmAddresses: string[],
-    setAccountsFn: (accounts: WalletAccount[]) => void
+    setAccountsFn: (accounts: WalletAccount[]) => void,
+    connectorInfo?: { name?: string; icon?: string }
   ): Promise<void> {
     const state = this.store.state
     const walletState = state.wallets[this.id]
@@ -346,7 +364,7 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       }
     }
 
-    const walletAccounts = await this.deriveAlgorandAccounts(evmAddresses)
+    const walletAccounts = await this.deriveAlgorandAccounts(evmAddresses, connectorInfo)
     const match = compareAccounts(walletAccounts, walletState.accounts)
 
     if (!match) {
@@ -354,8 +372,11 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
         prev: walletState.accounts,
         current: walletAccounts
       })
-      setAccountsFn(walletAccounts)
     }
+
+    // Always update accounts so that fresh connector metadata (name, icon) propagates
+    // to the reactive store even when addresses haven't changed.
+    setAccountsFn(walletAccounts)
 
     this.logger.info('Session resumed')
   }
