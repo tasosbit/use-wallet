@@ -20,19 +20,20 @@ export interface RainbowKitWalletOptions extends LiquidEvmOptions {
   getEvmAccounts?: () => Promise<string[]>
 }
 
+// Official Ethereum diamond logo (ethereum.org brand assets, eth-diamond-purple.svg)
+// Paths scaled to fit a 120x120 canvas via nested SVG viewBox mapping.
+// Background: #627EEA (Ethereum brand blue). Faces in white with original relative opacity.
 const ICON = `data:image/svg+xml;base64,${btoa(`
 <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="120" height="120" rx="24" fill="url(#rk_bg)"/>
-  <path d="M24 86V76.8C24 55.9 40.9 39 61.8 39H66C70.418 39 74 42.582 74 47V86" stroke="#FF4000" stroke-width="8" stroke-linecap="round" fill="none"/>
-  <path d="M36 86V76.8C36 62.3 47.7 50.6 62.2 50.6H64C67.314 50.6 70 53.286 70 56.6V86" stroke="#FF9500" stroke-width="8" stroke-linecap="round" fill="none"/>
-  <path d="M48 86V76.8C48 68.8 54.5 62.3 62.5 62.3H62.7C65.461 62.3 67.7 64.539 67.7 67.3V86" stroke="#00C853" stroke-width="8" stroke-linecap="round" fill="none"/>
-  <path d="M60 86V76.8C60 75 61.5 73.5 63.3 73.5C65.1 73.5 66.6 75 66.6 76.8V86" stroke="#2979FF" stroke-width="8" stroke-linecap="round" fill="none"/>
-  <defs>
-    <linearGradient id="rk_bg" x1="0" y1="0" x2="120" y2="120">
-      <stop stop-color="#1A1B23"/>
-      <stop offset="1" stop-color="#13141B"/>
-    </linearGradient>
-  </defs>
+  <rect width="120" height="120" rx="24" fill="#627EEA"/>
+  <svg x="30" y="11" width="60" height="98" viewBox="420.1 80.7 1079.8 1758.6">
+    <path d="m959.8 80.7-539.7 895.6 539.7-245.3z" fill="white"/>
+    <path d="m959.8 731-539.7 245.3 539.7 319.1z" fill="white" fill-opacity=".602"/>
+    <path d="m1499.6 976.3-539.8-895.6v650.3z" fill="white" fill-opacity=".602"/>
+    <path d="m959.8 1295.4 539.8-319.1-539.8-245.3z" fill="white" fill-opacity=".2"/>
+    <path d="m420.1 1078.7 539.7 760.6v-441.7z" fill="white"/>
+    <path d="m959.8 1397.6v441.7l540.1-760.6z" fill="white" fill-opacity=".602"/>
+  </svg>
 </svg>
 `)}`
 
