@@ -40,6 +40,12 @@ const ICON = `data:image/svg+xml;base64,${btoa(`
 export class RainbowKitWallet extends LiquidEvmBaseWallet {
   protected options: RainbowKitWalletOptions
   private _connecting = false
+  private _disconnecting = false
+
+  /** True while disconnect() is running. Used by the bridge to prevent re-entrancy. */
+  public get isDisconnecting(): boolean {
+    return this._disconnecting
+  }
 
   constructor(params: WalletConstructor<WalletId.RAINBOWKIT>) {
     super(params)
@@ -271,6 +277,7 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
   }
 
   public disconnect = async (): Promise<void> => {
+    this._disconnecting = true
     this.logger.info('Disconnecting...')
 
     try {
@@ -278,6 +285,8 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
       await wagmiDisconnect(this.wagmiConfig)
     } catch (error: any) {
       this.logger.warn('wagmi disconnect error:', error.message)
+    } finally {
+      this._disconnecting = false
     }
 
     this.evmAddressMap.clear()
@@ -315,10 +324,10 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
       // Live wagmi state available
       evmAddresses = account.addresses ? [...account.addresses] : [account.address]
       connectorInfo = RainbowKitWallet.extractConnectorInfo(account)
-    } else {
-      // Wagmi not connected yet — resume from persisted EVM addresses.
-      // RainbowKitBridge will call resumeSession() again once wagmi reconnects.
-      this.logger.warn('EVM wallet not yet connected, resuming from persisted state')
+    } else if (account.status === 'reconnecting') {
+      // Wagmi's own auto-reconnect is still in flight — use persisted addresses temporarily.
+      // RainbowKitBridge will call resumeSession() again once wagmi connects.
+      this.logger.warn('EVM wallet reconnecting, resuming from persisted state')
       evmAddresses = walletState.accounts
         .map((a) => a.metadata?.evmAddress as string)
         .filter(Boolean)
@@ -329,6 +338,13 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
         return
       }
       connectorInfo = {}
+    } else {
+      // account.status === 'disconnected' — reconnect definitively failed (e.g. wallet
+      // locked after days, session expired). Disconnect cleanly so the user is prompted
+      // to reconnect rather than seeing a confusing signing error later.
+      this.logger.warn('EVM wallet reconnect failed (status: disconnected), disconnecting')
+      this.onDisconnect()
+      return
     }
 
     // Fall back to persisted connector metadata if live metadata unavailable
