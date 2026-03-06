@@ -9,7 +9,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm build:packages && pnpm build:examples",
-    "build:packages": "pnpm -r --filter \"./packages/*\" build",
+    "build:packages": "env NODE_OPTIONS=\"--max-old-space-size=4096\" pnpm -r --filter \"./packages/*\" build",
     "build:examples": "pnpm -r --filter \"./examples/*\" build",
     "watch": "pnpm -r --filter \"./packages/*\" --parallel start",
     "dev": "pnpm run watch",
