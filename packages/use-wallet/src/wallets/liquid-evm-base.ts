@@ -99,7 +99,12 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
     const provider = await this.getEvmProvider()
     const { ALGORAND_CHAIN_ID_HEX, ALGORAND_EVM_CHAIN_CONFIG } = await import('liquid-accounts-evm')
 
-    const currentChainId = (await provider.request({ method: 'eth_chainId' })) as string
+    const rawChainId = await provider.request({ method: 'eth_chainId' })
+    // Some providers (RainbowKit/wagmi) return chainId as a number instead of a hex string
+    const currentChainId =
+      typeof rawChainId === 'number'
+        ? '0x' + rawChainId.toString(16)
+        : String(rawChainId)
 
     if (currentChainId.toLowerCase() === ALGORAND_CHAIN_ID_HEX.toLowerCase()) {
       return
