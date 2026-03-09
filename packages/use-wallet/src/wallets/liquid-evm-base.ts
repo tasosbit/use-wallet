@@ -92,51 +92,6 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
   ): Promise<string>
 
   /**
-   * Ensure the wallet is on the Algorand chain (4160).
-   * Queries the current chain first, and only switches/adds if needed.
-   */
-  protected async ensureAlgorandChain(): Promise<void> {
-    const provider = await this.getEvmProvider()
-    const { ALGORAND_CHAIN_ID_HEX, ALGORAND_EVM_CHAIN_CONFIG } = await import('liquid-accounts-evm')
-
-    const rawChainId = await provider.request({ method: 'eth_chainId' })
-    // Some providers (RainbowKit/wagmi) return chainId as a number instead of a hex string
-    const currentChainId =
-      typeof rawChainId === 'number'
-        ? '0x' + rawChainId.toString(16)
-        : String(rawChainId)
-
-    if (currentChainId.toLowerCase() === ALGORAND_CHAIN_ID_HEX.toLowerCase()) {
-      return
-    }
-
-    this.logger.info(
-      `Wrong chain (${currentChainId}), switching to Algorand (${ALGORAND_CHAIN_ID_HEX})...`
-    )
-
-    try {
-      await provider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: ALGORAND_CHAIN_ID_HEX }]
-      })
-    } catch (switchError: any) {
-      // 4902  = chain not added (MetaMask / standard EIP-3085)
-      // -32600 = "Chain Id not supported" (Rainbow and other wallets)
-      // -32603 = internal JSON-RPC error (some wallets use this for unknown chains)
-      const chainUnknown = [4902, -32600, -32603].includes(switchError.code)
-      if (chainUnknown) {
-        this.logger.info('Algorand chain not found, adding it...')
-        await provider.request({
-          method: 'wallet_addEthereumChain',
-          params: [ALGORAND_EVM_CHAIN_CONFIG]
-        })
-      } else {
-        throw switchError
-      }
-    }
-  }
-
-  /**
    * Initialize the Liquid EVM SDK for deriving Algorand addresses
    */
   protected async initializeEvmSdk(): Promise<LiquidEvmSdk> {
@@ -295,9 +250,6 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
         // important to pass the txns as Uint8Array to avoid package hazard issues. decode on the other end
         await onBeforeSign(txnsAsUint8, indexesToSign)
       }
-
-      // Ensure we're on the Algorand chain before requesting signatures
-      await this.ensureAlgorandChain()
 
       // Get a TransactionSigner for this EVM address
       const { signer: evmSigner } = await liquidEvmSdk.getSigner({

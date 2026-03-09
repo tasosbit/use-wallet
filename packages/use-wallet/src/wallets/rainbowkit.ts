@@ -2,11 +2,7 @@ import { WalletState, addWallet, setAccounts } from 'src/store'
 import { LiquidEvmBaseWallet, LiquidEvmOptions } from 'src/wallets/liquid-evm-base'
 import { WalletId } from 'src/wallets/types'
 import type { WalletAccount, WalletConstructor } from 'src/wallets/types'
-import {
-  ALGORAND_CHAIN_ID,
-  algorandChain,
-  type SignTypedDataParams,
-} from 'liquid-accounts-evm'
+import type { SignTypedDataParams } from 'liquid-accounts-evm'
 import type { Config as WagmiConfig } from '@wagmi/core'
 
 export interface RainbowKitWalletOptions extends LiquidEvmOptions {
@@ -54,10 +50,6 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
     if (!this.options.wagmiConfig) {
       throw new Error('RainbowKitWallet requires wagmiConfig in options')
     }
-
-    // Ensure chain 4160 is always registered in the wagmi config so that
-    // switchChain and signTypedData work without raw provider workarounds.
-    this.ensureChainRegistered()
   }
 
   static defaultMetadata = {
@@ -88,22 +80,6 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
     return this.options.wagmiConfig
   }
 
-  /**
-   * If the Algorand chain (4160) isn't already in the wagmi config, add it.
-   * This is needed so wagmi's switchChain and signTypedData work without
-   * falling back to raw provider calls.
-   */
-  private ensureChainRegistered(): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chains = this.wagmiConfig.chains as any as Array<{ id: number; [key: string]: any }>
-    if (chains.some((c) => c.id === ALGORAND_CHAIN_ID)) {
-      return
-    }
-
-    this.logger.info(`Registering Algorand chain (${ALGORAND_CHAIN_ID}) in wagmi config`)
-    chains.push(algorandChain)
-  }
-
   protected async initializeProvider(): Promise<void> {
     // wagmi handles provider initialization — nothing to do here
     this.logger.info('Using wagmi for EVM provider management')
@@ -111,7 +87,6 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
 
   /**
    * Get the raw EIP-1193 provider from the active wagmi connector.
-   * Used by the base class's getEvmProvider and ensureAlgorandChain.
    */
   private async getRawProvider(): Promise<any> {
     const { getAccount } = await import('@wagmi/core')
@@ -127,18 +102,13 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
   /**
    * Sign EIP-712 typed data using wagmi's signTypedData.
    *
-   * wagmi's signTypedData does NOT validate the domain's chainId against the
-   * connected chain — it simply forwards the typed data to the wallet via viem.
-   * EIP-712 signing is chain-agnostic (the chain ID is in the typed data domain,
-   * not in the RPC method), so this works regardless of which chain the wallet
-   * reports being on.
+   * The EIP-712 domain uses only (name, version) with no chainId, so signing
+   * works regardless of which chain the wallet reports being on.
    */
   protected async signWithProvider(typedData: SignTypedDataParams, evmAddress: string): Promise<string> {
     const { signTypedData } = await import('@wagmi/core')
 
     // Omit EIP712Domain from types — viem infers it from the domain object.
-    // Passing it explicitly causes viem to map uint256→bigint for chainId,
-    // conflicting with our number-typed domain.
     const { EIP712Domain: _, ...types } = typedData.types
 
     return signTypedData(this.wagmiConfig, {
