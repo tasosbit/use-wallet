@@ -100,24 +100,32 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
   }
 
   /**
-   * Sign EIP-712 typed data using wagmi's signTypedData.
+   * Sign EIP-712 typed data via the raw EIP-1193 provider.
    *
-   * The EIP-712 domain uses only (name, version) with no chainId, so signing
-   * works regardless of which chain the wallet reports being on.
+   * Bypasses wagmi's signTypedData (which requires the wallet's current chain
+   * to be in the wagmi config) and calls eth_signTypedData_v4 directly.
+   * Since the EIP-712 domain has no chainId, signing is truly chain-agnostic
+   * and works regardless of which chain the wallet is on.
    */
   protected async signWithProvider(typedData: SignTypedDataParams, evmAddress: string): Promise<string> {
-    const { signTypedData } = await import('@wagmi/core')
+    const provider = await this.getRawProvider()
 
-    // Omit EIP712Domain from types — viem infers it from the domain object.
-    const { EIP712Domain: _, ...types } = typedData.types
-
-    return signTypedData(this.wagmiConfig, {
-      account: evmAddress as `0x${string}`,
+    const data = JSON.stringify({
+      types: typedData.types,
       domain: typedData.domain,
-      types,
       primaryType: typedData.primaryType,
       message: typedData.message,
     })
+
+    this.logger.info('Requesting eth_signTypedData_v4', { evmAddress, domain: typedData.domain, primaryType: typedData.primaryType })
+
+    const signature = await provider.request({
+      method: 'eth_signTypedData_v4',
+      params: [evmAddress, data],
+    })
+
+    this.logger.info('Received signature', { signature: signature?.slice(0, 20) + '...' })
+    return signature
   }
 
   /**
