@@ -1,11 +1,11 @@
 import { WalletState, addWallet, setAccounts } from 'src/store'
-import { LiquidEvmBaseWallet, LiquidEvmOptions } from 'src/wallets/liquid-evm-base'
+import { AlgoXEvmBaseWallet, AlgoXEvmOptions } from 'src/wallets/algo-x-evm-base'
 import { WalletId } from 'src/wallets/types'
 import type { WalletAccount, WalletConstructor } from 'src/wallets/types'
-import type { SignTypedDataParams } from 'liquid-accounts-evm'
+import type { SignTypedDataParams } from 'algo-x-evm-sdk'
 import type { Config as WagmiConfig } from '@wagmi/core'
 
-export interface RainbowKitWalletOptions extends LiquidEvmOptions {
+export interface RainbowKitWalletOptions extends AlgoXEvmOptions {
   /** wagmi Config instance, typically created with RainbowKit's getDefaultConfig() */
   wagmiConfig: WagmiConfig
   /**
@@ -33,7 +33,7 @@ const ICON = `data:image/svg+xml;base64,${btoa(`
 </svg>
 `)}`
 
-export class RainbowKitWallet extends LiquidEvmBaseWallet {
+export class RainbowKitWallet extends AlgoXEvmBaseWallet {
   protected options: RainbowKitWalletOptions
   private _connecting = false
   private _disconnecting = false
@@ -55,7 +55,7 @@ export class RainbowKitWallet extends LiquidEvmBaseWallet {
   static defaultMetadata = {
     name: 'EVM Wallet',
     icon: ICON,
-    isLiquid: 'EVM' as const
+    isAlgoXEvm: 'EVM' as const
   }
 
   /** True while connect() is running. Prevents re-entrancy from bridge components. */

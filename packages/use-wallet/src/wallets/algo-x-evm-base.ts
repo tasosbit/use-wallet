@@ -1,12 +1,12 @@
 import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import type { Store } from '@tanstack/store'
 import algosdk from 'algosdk'
-import type { LiquidEvmSdk, SignTypedDataParams } from 'liquid-accounts-evm'
+import type { AlgoXEvmSdk, SignTypedDataParams } from 'algo-x-evm-sdk'
 import type { State } from 'src/store'
 import { compareAccounts, flattenTxnGroup, isSignedTxn, isTransactionArray } from 'src/utils'
 import { BaseWallet } from 'src/wallets/base'
 import type {
-  LiquidEvmMetadata,
+  AlgoXEvmMetadata,
   SignerTransaction,
   WalletAccount,
   WalletConstructor
@@ -17,7 +17,7 @@ interface EvmAccount {
   algorandAddress: string
 }
 
-export interface LiquidEvmOptions {
+export interface AlgoXEvmOptions {
   uiHooks?: {
     onConnect?: (evmAccount: EvmAccount) => void
     onBeforeSign?: (
@@ -29,11 +29,11 @@ export interface LiquidEvmOptions {
 }
 
 /**
- * Abstract base class for EVM-based wallets that use the Liquid Accounts system
+ * Abstract base class for EVM-based wallets that use the Algo x EVM system
  * to derive Algorand addresses from EVM addresses.
  *
  * This class provides common functionality for:
- * - Initializing the Liquid EVM SDK
+ * - Initializing the Algo x EVM SDK
  * - Deriving Algorand accounts from EVM addresses
  * - Signing Algorand transactions using EVM signatures
  * - Managing the mapping between EVM and Algorand addresses
@@ -43,11 +43,11 @@ export interface LiquidEvmOptions {
  * - getEvmProvider(): Get the EVM provider instance
  * - signWithProvider(): Sign a message with the specific EVM wallet
  */
-export abstract class LiquidEvmBaseWallet extends BaseWallet {
-  protected liquidEvmSdk: LiquidEvmSdk | null = null
+export abstract class AlgoXEvmBaseWallet extends BaseWallet {
+  protected algoXEvmSdk: AlgoXEvmSdk | null = null
   protected algorandClient: AlgorandClient | null = null
   protected evmAddressMap: Map<string, string> = new Map() // algorandAddress -> evmAddress
-  protected options: LiquidEvmOptions
+  protected options: AlgoXEvmOptions
   protected store: Store<State>
 
   constructor(params: WalletConstructor<any>) {
@@ -57,15 +57,15 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
   }
 
   /**
-   * Default metadata for Liquid EVM wallets.
-   * Subclasses MUST override this with their own metadata including isLiquid: "EVM"
+   * Default metadata for Algo x EVM wallets.
+   * Subclasses MUST override this with their own metadata including isAlgoXEvm: "EVM"
    */
-  static defaultMetadata: LiquidEvmMetadata
+  static defaultMetadata: AlgoXEvmMetadata
 
   /**
-   * Typed metadata accessor that guarantees isLiquid: "EVM" is present
+   * Typed metadata accessor that guarantees isAlgoXEvm: "EVM" is present
    */
-  declare readonly metadata: LiquidEvmMetadata
+  declare readonly metadata: AlgoXEvmMetadata
 
   /**
    * Initialize the provider-specific SDK or connection.
@@ -92,11 +92,11 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
   ): Promise<string>
 
   /**
-   * Initialize the Liquid EVM SDK for deriving Algorand addresses
+   * Initialize the Algo x EVM SDK for deriving Algorand addresses
    */
-  protected async initializeEvmSdk(): Promise<LiquidEvmSdk> {
-    if (!this.liquidEvmSdk) {
-      this.logger.info('Initializing Liquid EVM SDK...')
+  protected async initializeEvmSdk(): Promise<AlgoXEvmSdk> {
+    if (!this.algoXEvmSdk) {
+      this.logger.info('Initializing Algo x EVM SDK...')
 
       if (!this.algorandClient) {
         const { AlgorandClient } = await import('@algorandfoundation/algokit-utils')
@@ -106,12 +106,12 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
         })
       }
 
-      const { LiquidEvmSdk } = await import('liquid-accounts-evm')
-      this.liquidEvmSdk = new LiquidEvmSdk({ algorand: this.algorandClient })
+      const { AlgoXEvmSdk } = await import('algo-x-evm-sdk')
+      this.algoXEvmSdk = new AlgoXEvmSdk({ algorand: this.algorandClient })
 
-      this.logger.info('Liquid EVM SDK initialized')
+      this.logger.info('Algo x EVM SDK initialized')
     }
-    return this.liquidEvmSdk
+    return this.algoXEvmSdk
   }
 
   /**
@@ -123,12 +123,12 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
     evmAddresses: string[],
     connectorInfo?: { name?: string; icon?: string }
   ): Promise<WalletAccount[]> {
-    const liquidEvmSdk = await this.initializeEvmSdk()
+    const algoXEvmSdk = await this.initializeEvmSdk()
     const walletAccounts: WalletAccount[] = []
 
     for (let i = 0; i < evmAddresses.length; i++) {
       const evmAddress = evmAddresses[i]
-      const algorandAddress = await liquidEvmSdk.getAddress({ evmAddress })
+      const algorandAddress = await algoXEvmSdk.getAddress({ evmAddress })
 
       this.evmAddressMap.set(algorandAddress, evmAddress)
 
@@ -208,7 +208,7 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
     try {
       this.logger.debug('Signing transactions...', { txnGroup, indexesToSign })
 
-      const liquidEvmSdk = await this.initializeEvmSdk()
+      const algoXEvmSdk = await this.initializeEvmSdk()
       let txnsToSign: SignerTransaction[] = []
 
       // Determine type and process transactions for signing
@@ -252,7 +252,7 @@ export abstract class LiquidEvmBaseWallet extends BaseWallet {
       }
 
       // Get a TransactionSigner for this EVM address
-      const { signer: evmSigner } = await liquidEvmSdk.getSigner({
+      const { signer: evmSigner } = await algoXEvmSdk.getSigner({
         evmAddress,
         signMessage: (typedData) => this.signWithProvider(typedData, evmAddress)
       })

@@ -126,11 +126,11 @@ export type SupportedWallets = NonEmptyArray<SupportedWallet>
 export type WalletMetadata = {
   name: string
   icon: string
-  isLiquid?: 'EVM'
+  isAlgoXEvm?: 'EVM'
 }
 
-export type LiquidEvmMetadata = WalletMetadata & {
-  isLiquid: 'EVM'
+export type AlgoXEvmMetadata = WalletMetadata & {
+  isAlgoXEvm: 'EVM'
 }
 
 export interface UIHooks {
