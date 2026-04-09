@@ -144,18 +144,27 @@ export class RainbowKitWallet extends AlgoXEvmBaseWallet {
 
   /**
    * Read connected EVM accounts from wagmi state.
-   * If not connected, tries the getEvmAccounts callback, then falls back to
-   * connecting with the first available connector.
-   *
-   * When getEvmAccounts is provided, it is always called (to show the wallet
-   * selection UI). The callback is responsible for any disconnect/reconnect
-   * needed to present a fresh selection.
+   * If already connected (e.g. auto-reconnect on page refresh), uses the
+   * existing connection directly.  Otherwise tries the getEvmAccounts
+   * callback (wallet picker UI), then falls back to connecting with the
+   * first available connector.
    */
   private async getConnectedEvmAddresses(): Promise<{ addresses: string[]; connectorInfo: { name?: string; icon?: string } }> {
     const { getAccount, connect: wagmiConnect } = await import('@wagmi/core')
 
-    // If getEvmAccounts is provided, always call it — this is the "show me
-    // a wallet picker" path.  The callback handles disconnect if needed.
+    // If wagmi is already connected (e.g. auto-reconnect on page refresh),
+    // use the existing connection without showing the wallet picker.
+    const existing = getAccount(this.wagmiConfig)
+    if (existing.isConnected && existing.address) {
+      this.logger.info('Using existing wagmi connection')
+      return {
+        addresses: existing.addresses ? [...existing.addresses] : [existing.address],
+        connectorInfo: RainbowKitWallet.extractConnectorInfo(existing)
+      }
+    }
+
+    // Not connected — use the wallet picker callback if available.
+    // The callback handles disconnect/reconnect to present a fresh selection.
     if (this.options.getEvmAccounts) {
       const addresses = await this.options.getEvmAccounts()
       if (addresses.length > 0) {
@@ -168,15 +177,6 @@ export class RainbowKitWallet extends AlgoXEvmBaseWallet {
           }
         }
         return { addresses, connectorInfo }
-      }
-    }
-
-    // No callback — check wagmi state directly
-    const account = getAccount(this.wagmiConfig)
-    if (account.isConnected && account.address) {
-      return {
-        addresses: account.addresses ? [...account.addresses] : [account.address],
-        connectorInfo: RainbowKitWallet.extractConnectorInfo(account)
       }
     }
 
