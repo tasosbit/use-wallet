@@ -220,9 +220,9 @@ export abstract class AlgoXEvmBaseWallet extends BaseWallet {
         txnsToSign = this.processEncodedTxns(flatTxns, indexesToSign)
       }
 
-      // TODO get evm signers properly
-      const firstTxn = txnsToSign[0]
-      const algorandAddress = firstTxn.txn.sender.toString()
+      // Find the first transaction that actually needs signing (not marked with signers: [])
+      const firstSignableTxn = txnsToSign.find((t) => !('signers' in t)) ?? txnsToSign[0]
+      const algorandAddress = firstSignableTxn.txn.sender.toString()
       let evmAddress = this.evmAddressMap.get(algorandAddress)
 
       // Fallback: rebuild evmAddressMap from persisted account metadata
