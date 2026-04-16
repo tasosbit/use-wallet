@@ -220,27 +220,38 @@ export abstract class AlgoXEvmBaseWallet extends BaseWallet {
         txnsToSign = this.processEncodedTxns(flatTxns, indexesToSign)
       }
 
-      // TODO get evm signers properly
-      const firstTxn = txnsToSign[0]
-      const algorandAddress = firstTxn.txn.sender.toString()
-      let evmAddress = this.evmAddressMap.get(algorandAddress)
-
-      // Fallback: rebuild evmAddressMap from persisted account metadata
-      if (!evmAddress) {
-        const walletState = this.store.state.wallets[this.id]
-        if (walletState) {
-          for (const account of walletState.accounts) {
-            const addr = account.metadata?.evmAddress as string | undefined
-            if (addr) {
-              this.evmAddressMap.set(account.address, addr)
-            }
+      // Ensure evmAddressMap is populated (fallback to persisted account metadata)
+      const walletState = this.store.state.wallets[this.id]
+      if (walletState) {
+        for (const account of walletState.accounts) {
+          const addr = account.metadata?.evmAddress as string | undefined
+          if (addr && !this.evmAddressMap.has(account.address)) {
+            this.evmAddressMap.set(account.address, addr)
           }
-          evmAddress = this.evmAddressMap.get(algorandAddress)
         }
       }
 
-      if (!evmAddress) {
-        throw new Error(`No EVM address found for Algorand address: ${algorandAddress}`)
+      // Build full transaction array and determine which indexes need signing
+      const allTxns = txnsToSign.map((t) => t.txn)
+      const signIndexes = txnsToSign.reduce<number[]>((acc, t, i) => {
+        if (!('signers' in t)) acc.push(i)
+        return acc
+      }, [])
+
+      // Group sign indexes by EVM address (one wallet prompt per unique signer)
+      const evmGroups = new Map<string, number[]>()
+      for (const idx of signIndexes) {
+        const algorandAddress = allTxns[idx].sender.toString()
+        const evmAddress = this.evmAddressMap.get(algorandAddress)
+        if (!evmAddress) {
+          throw new Error(`No EVM address found for Algorand address: ${algorandAddress}`)
+        }
+        const group = evmGroups.get(evmAddress)
+        if (group) {
+          group.push(idx)
+        } else {
+          evmGroups.set(evmAddress, [idx])
+        }
       }
 
       const onBeforeSign = this.options.uiHooks?.onBeforeSign ?? this.managerUIHooks?.onBeforeSign
@@ -251,21 +262,21 @@ export abstract class AlgoXEvmBaseWallet extends BaseWallet {
         await onBeforeSign(txnsAsUint8, indexesToSign)
       }
 
-      // Get a TransactionSigner for this EVM address
-      const { signer: evmSigner } = await algoXEvmSdk.getSigner({
-        evmAddress,
-        signMessage: (typedData) => this.signWithProvider(typedData, evmAddress)
-      })
+      // Sign transactions grouped by EVM address
+      const signedResult: (Uint8Array | null)[] = new Array(txnsToSign.length).fill(null)
+      console.log('EVM Groups for signing:', evmGroups)
+      for (const [evmAddress, indexes] of evmGroups) {
+        const { signer: evmSigner } = await algoXEvmSdk.getSigner({
+          evmAddress,
+          signMessage: (typedData) => this.signWithProvider(typedData, evmAddress)
+        })
 
-      // Determine which indexes to sign (entries without signers: [] should be signed)
-      const allTxns = txnsToSign.map((t) => t.txn)
-      const signIndexes = txnsToSign.reduce<number[]>((acc, t, i) => {
-        if (!('signers' in t)) acc.push(i)
-        return acc
-      }, [])
+        const signedBlobs = await evmSigner(allTxns, indexes)
 
-      // Sign all transactions in one call to avoid multiple wallet prompts
-      const signedBlobs = await evmSigner(allTxns, signIndexes)
+        for (let i = 0; i < indexes.length; i++) {
+          signedResult[indexes[i]] = signedBlobs[i]
+        }
+      }
 
       const onAfterSign = this.options.uiHooks?.onAfterSign ?? this.managerUIHooks?.onAfterSign
       if (onAfterSign) {
@@ -275,17 +286,8 @@ export abstract class AlgoXEvmBaseWallet extends BaseWallet {
         } catch (e) {}
       }
 
-      // Map signed blobs back to full array with nulls for unsigned txns
-      let signedIdx = 0
-      const result: (Uint8Array | null)[] = txnsToSign.map((_, index) => {
-        if (signIndexes.includes(index)) {
-          return signedBlobs[signedIdx++]
-        }
-        return null
-      })
-
-      this.logger.debug('Transactions signed successfully', result)
-      return result
+      this.logger.debug('Transactions signed successfully', signedResult)
+      return signedResult
     } catch (error: any) {
       try {
         const onAfterSignCleanup =
