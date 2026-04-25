@@ -29,11 +29,11 @@ export interface AlgoXEvmOptions {
 }
 
 /**
- * Abstract base class for EVM-based wallets that use the Algo x EVM system
+ * Abstract base class for EVM-based wallets that use the xChain EVM system
  * to derive Algorand addresses from EVM addresses.
  *
  * This class provides common functionality for:
- * - Initializing the Algo x EVM SDK
+ * - Initializing the xChain EVM SDK
  * - Deriving Algorand accounts from EVM addresses
  * - Signing Algorand transactions using EVM signatures
  * - Managing the mapping between EVM and Algorand addresses
@@ -57,7 +57,7 @@ export abstract class AlgoXEvmBaseWallet extends BaseWallet {
   }
 
   /**
-   * Default metadata for Algo x EVM wallets.
+   * Default metadata for xChain EVM wallets.
    * Subclasses MUST override this with their own metadata including isAlgoXEvm: "EVM"
    */
   static defaultMetadata: AlgoXEvmMetadata
@@ -92,11 +92,11 @@ export abstract class AlgoXEvmBaseWallet extends BaseWallet {
   ): Promise<string>
 
   /**
-   * Initialize the Algo x EVM SDK for deriving Algorand addresses
+   * Initialize the xChain EVM SDK for deriving Algorand addresses
    */
   protected async initializeEvmSdk(): Promise<AlgoXEvmSdk> {
     if (!this.algoXEvmSdk) {
-      this.logger.info('Initializing Algo x EVM SDK...')
+      this.logger.info('Initializing xChain EVM SDK...')
 
       if (!this.algorandClient) {
         const { AlgorandClient } = await import('@algorandfoundation/algokit-utils')
@@ -109,7 +109,7 @@ export abstract class AlgoXEvmBaseWallet extends BaseWallet {
       const { AlgoXEvmSdk } = await import('algo-x-evm-sdk')
       this.algoXEvmSdk = new AlgoXEvmSdk({ algorand: this.algorandClient })
 
-      this.logger.info('Algo x EVM SDK initialized')
+      this.logger.info('xChain EVM SDK initialized')
     }
     return this.algoXEvmSdk
   }

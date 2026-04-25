@@ -137,7 +137,7 @@ export interface Wallet {
   disconnect: () => Promise<void>
   setActive: () => void
   setActiveAccount: (address: string) => void
-  /** EIP-1193 provider for EVM operations. Only available on Algo x EVM wallets. */
+  /** EIP-1193 provider for EVM operations. Only available on xChain EVM wallets. */
   getEvmProvider?: () => Promise<any>
 }
 
