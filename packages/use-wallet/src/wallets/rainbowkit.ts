@@ -326,7 +326,7 @@ export class RainbowKitWallet extends AlgoXEvmBaseWallet {
     }
 
     // Fall back to persisted connector metadata if live metadata unavailable
-    if (!connectorInfo.name && walletState.accounts.length > 0) {
+    if ((!connectorInfo.name || !connectorInfo.icon) && walletState.accounts.length > 0) {
       const first = walletState.accounts[0]
       const persistedName = first.metadata?.connectorName as string | undefined
       const persistedIcon = first.metadata?.connectorIcon as string | undefined
